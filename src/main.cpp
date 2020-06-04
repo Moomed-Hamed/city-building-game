@@ -1,11 +1,14 @@
-#include "input.h"
+#include "level.h"
 
 #define SCREEN_WIDTH  1280
 #define SCREEN_HEIGHT 720
 
 #define TARGET_FRAMERATE ((float)120)
 
-#define KeyIsDown(key) (glfwGetKey(window.instance, key) == GLFW_PRESS)
+//timer if u need 1
+//Timestamp start = get_timestamp();
+//out(calculate_microseconds_elapsed(start, get_timestamp()));
+//stop; return 0;
 
 int main()
 {
@@ -26,41 +29,43 @@ int main()
 
 	// flat plane setup
 	Render_Data render_data = {};
-	fill_render_data(&render_data, 0, "assets/models/flat_plane.model", VertSource, FragSource);
+	init(&render_data, 0, "assets/models/flat_plane.model", VertSource, FragSource);
 
 	/*---------------- Game World Setup --------------*/
 	
-	Game_World world = {};
-	game_world_init(&world);
+	Game_Level level = make_game_level(16, 16);
+	spawn_friendly_unit(&level, 1, 1);
 
-	World_Renderer world_renderer = {};
-	fill_render_data(&world_renderer, WORLD_TILE_COUNT * sizeof(Tile_Renderable), "assets/models/cube.model", TileVertSource, TileFragSource);
-	world_renderer.tiles = Alloc(Tile_Renderable, WORLD_TILE_COUNT);
+	Level_Renderer level_renderer = {};
+	level_renderer.terrain.blocks = Alloc(Terrain_Block_Renderable, 256);
+	level_renderer.friendly_units.units = Alloc(Unit_Renderable, MAX_UNITS);
+	level_renderer.enemy_units.units    = Alloc(Unit_Renderable, MAX_UNITS);
+	level_renderer.props.props = Alloc(Prop_Renderable, MAX_UNITS);
 
-	{
-		GLuint pos_attrib = 2;
-		glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(Tile_Renderable), 0);
-		glVertexAttribDivisor(pos_attrib, 1);
-		glEnableVertexAttribArray(pos_attrib);
+	init(&level_renderer.terrain, 256 * sizeof(Terrain_Block_Renderable), "assets/models/cube.model", TileVertSource, TileFragSource);
+	gl_add_attrib_vec3(2, sizeof(Terrain_Block_Renderable), 0);
+	gl_add_attrib_vec3(3, sizeof(Terrain_Block_Renderable), sizeof(vec3));
 
-		GLuint col_attrib = 3;
-		glVertexAttribPointer(col_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(Tile_Renderable), (void*)sizeof(vec3));
-		glVertexAttribDivisor(col_attrib, 1);
-		glEnableVertexAttribArray(col_attrib);
-	}
+	init(&level_renderer.friendly_units, 256 * sizeof(Unit_Renderable), "assets/models/cube.model", TileVertSource, TileFragSource);
+	gl_add_attrib_vec3(2, sizeof(Unit_Renderable), 0);
+	gl_add_attrib_vec3(3, sizeof(Unit_Renderable), sizeof(vec3));
+
+	init(&level_renderer.enemy_units, 256 * sizeof(Unit_Renderable), "assets/models/cube.model", TileVertSource, TileFragSource);
+	gl_add_attrib_vec3(2, sizeof(Unit_Renderable), 0);
+	gl_add_attrib_vec3(3, sizeof(Unit_Renderable), sizeof(vec3));
+
+	init(&level_renderer.props, 256 * sizeof(Prop_Renderable), "assets/models/cube.model", TileVertSource, TileFragSource);
+	gl_add_attrib_vec3(2, sizeof(Prop_Renderable), 0);
+	gl_add_attrib_vec3(3, sizeof(Prop_Renderable), sizeof(vec3));
 
 	/*---------------- Game Input --------------*/
 
-	Game_Mouse mouse = {};
+	Game_Mouse mouse   = {};
+	Game_Keyboard keys = {};
+	game_keyboard_init(&keys);
 
 	Camera camera = {};
 	init_camera(&camera);
-
-	for (uint i = 0; i < 16; ++i) {
-	for (uint j = 0; j < 16; ++j)
-	{
-		world.tiles[(i * 16) + j].position = vec3(i, 0, j);
-	} }
 
 	/*--------------- Timing Logic ---------------*/
 
@@ -70,30 +75,31 @@ int main()
 	Timestamp frame_start, frame_end;
 	frame_start = get_timestamp();
 
-	while (!glfwWindowShouldClose(window.instance))
+	while(1)
 	{
 		glfwPollEvents();
+		update_keyboard(&keys, window);
+		update_mouse(&mouse, window);
 
-		mouse_update(window, &mouse);
+		mat4 proj_view = Proj * glm::lookAt(camera.Position, camera.Position + camera.Front, camera.Up);
 
+		mouse.world_dir = get_mouse_world_dir(mouse, proj_view);
+
+		// update the camera
 		update_camera(&camera, mouse.dx, mouse.dy);
 		camera.Position = vec3(-10.608428, 11.828352, 2.657687);
-		camera.Front = vec3(0.804584, -0.544792, 0.236320);
-		camera.Right = vec3(-0.281813, 0.000000, 0.959469);
-		camera.Up    = vec3(0.522711, 0.838572, 0.153529);
+		camera.Front = vec3( 0.804584, -0.544792, 0.236320);
+		camera.Right = vec3(-0.281813,  0.000000, 0.959469);
+		camera.Up    = vec3( 0.522711,  0.838572, 0.153529);
 		camera.Pitch = -0.576140;
-		camera.Yaw   = 0.285683;
+		camera.Yaw   =  0.285683;
 
-		//what is an unproject matrix?
-
-		if (KeyIsDown(GLFW_KEY_ESCAPE)) glfwSetWindowShouldClose(window.instance, GL_TRUE);
-
-		if (KeyIsDown(GLFW_KEY_W)) camera_move(&camera, CAMERA_FORWARD , 8.0f, DeltaTime);
-		if (KeyIsDown(GLFW_KEY_S)) camera_move(&camera, CAMERA_BACKWARD, 8.0f, DeltaTime);
-		if (KeyIsDown(GLFW_KEY_A)) camera_move(&camera, CAMERA_LEFT    , 8.0f, DeltaTime);
-		if (KeyIsDown(GLFW_KEY_D)) camera_move(&camera, CAMERA_RIGHT   , 8.0f, DeltaTime);
-
-		if (KeyIsDown(GLFW_KEY_K))
+		if (keys.ESC.is_pressed) break; // out of the main game loop
+		if (keys.W.is_pressed) camera_move(&camera, CAMERA_FORWARD , 8.0f, DeltaTime);
+		if (keys.A.is_pressed) camera_move(&camera, CAMERA_BACKWARD, 8.0f, DeltaTime);
+		if (keys.S.is_pressed) camera_move(&camera, CAMERA_LEFT    , 8.0f, DeltaTime);
+		if (keys.D.is_pressed) camera_move(&camera, CAMERA_RIGHT   , 8.0f, DeltaTime);
+		if (keys.SPACE.is_pressed)
 		{
 			FILE* write = fopen("camera.txt", "w");
 
@@ -106,22 +112,20 @@ int main()
 
 			fclose(write);
 		}
+		
+		// input has been gathered, now update the world
+		//terrain.selected_tile_index = world_get_selected_tile(mouse, camera.Position, terrain);
 
 		/*-------------------------------- Rendering -----------------------------*/
 		glClearColor(0, 0, 0, 1);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-		mat4 proj_view = Proj * glm::lookAt(camera.Position, camera.Position + camera.Front, camera.Up);
 
-		mouse.world_dir = get_mouse_word_dir(mouse, proj_view);
-		world_set_selected_tile(mouse, camera.Position, world);
-
-		//draw a flat plane
-		draw_render_data(render_data, &proj_view, camera.Position);
+		//draw flat plane
+		draw(render_data, &proj_view, camera.Position);
 
 		//draw world tiles
-		tiles_to_renderable(&world, &world_renderer);
-		draw_render_data(world_renderer, &proj_view, camera.Position, WORLD_TILE_COUNT * sizeof(Tile_Renderable),
-			(byte*)world_renderer.tiles, world_renderer.num_tiles);
+		level_to_renderable(level, &level_renderer);
+		draw_level(level_renderer, &proj_view, camera.Position);
 
 		/*------------------------------- Finish Frame -------------------------------*/
 		glfwSwapBuffers(window.instance);
@@ -140,5 +144,6 @@ int main()
 		frame_start = get_timestamp();
 	}
 
+	glfwTerminate();
 	return 0;
 }

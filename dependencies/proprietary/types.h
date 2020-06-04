@@ -15,10 +15,15 @@ typedef unsigned short uint16;
 typedef unsigned int   uint32;
 typedef unsigned long long uint64;
 
+typedef uint8  u8;
+typedef uint16 u16;
 typedef uint32 u32;
 typedef uint64 u64;
-typedef int32  s32;
-typedef int64  s64;
+
+typedef int8  s8;
+typedef int16 s16;
+typedef int32 s32;
+typedef int64 s64;
 
 typedef s32 sint;
 typedef u32 uint;

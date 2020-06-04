@@ -1,64 +1,43 @@
 #pragma once
-#include "physics.h"
+#include "tile_map.h"
 
-#define TILE_COUNT_X 16
-#define TILE_COUNT_Z 16
-#define WORLD_TILE_COUNT (TILE_COUNT_X * TILE_COUNT_Z)
+#define GRASS_BLOCK 1
 
-#define GRASS_TILE 0
-#define WATER_TILE 1
-
-struct Tile
+struct Terrain_Block : Tile
 {
-	vec3 position;
-	uint type;
-	bool is_selected;
+
 };
 
-struct Game_World
-{
-	Tile* tiles;
-};
-
-void game_world_init(Game_World* world)
-{
-	*world = {};
-	world->tiles = Alloc(Tile, WORLD_TILE_COUNT);
-	ZeroMemory(world->tiles, WORLD_TILE_COUNT * sizeof(Tile));
-
-	for (uint i = 0; i < WORLD_TILE_COUNT; ++i) world->tiles[i].type = GRASS_TILE;
-}
-
-struct Tile_Renderable
+struct Terrain_Block_Renderable
 {
 	vec3 position;
 	vec3 color;
 };
 
-struct World_Renderer : Render_Data
+struct Terrain_Renderer : Render_Data
 {
-	uint num_tiles;
-	Tile_Renderable* tiles;
+	uint num_blocks;
+	Terrain_Block_Renderable* blocks;
 };
 
-void tiles_to_renderable(Game_World* world, World_Renderer* renderer)
+void terrain_to_renderable(Terrain_Block* blocks, Terrain_Renderer* renderer)
 {
-	renderer->num_tiles = 0;
+	uint num_blocks = 0;
 
-	for (uint x = 0;  x < TILE_COUNT_X; ++x) {
-	for (uint z = 0;  z < TILE_COUNT_Z; ++z)
+	for (uint x = 0; x < 16; ++x) {
+	for (uint z = 0; z < 16; ++z)
 	{
 		uint index = (x * 16) + z;
-
-		renderer->tiles[index].position = world->tiles[index].position;
-
-		if (world->tiles[index].is_selected)
-			renderer->tiles[index].color = vec3(0, 1, 1);
-		else
-			renderer->tiles[index].color = vec3(1, 0, 0);
-
-		renderer->num_tiles++;
+	
+		renderer->blocks[index].position = vec3(x, 0, z);
+		renderer->blocks[index].color    = vec3(1, 0, 0);
+	
+		num_blocks++;
 	} }
+
+	renderer->num_blocks = num_blocks;
+
+	//if (map->selected_tile_index >= 0) renderer->tiles[map->selected_tile_index].color = vec3(0, 1, 1);
 }
 
 const char* TileVertSource = R"glsl(

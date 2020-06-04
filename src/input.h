@@ -1,5 +1,5 @@
 #pragma once
-#include "world.h"
+#include "units.h"
 
 struct Game_Window
 {
@@ -41,7 +41,7 @@ struct Game_Mouse
 	vec3 world_dir; // direction mouse ray is facing in world space
 };
 
-void mouse_update(Game_Window window, Game_Mouse* mouse)
+void update_mouse(Game_Mouse* mouse, Game_Window window)
 {
 	static Game_Mouse prev_mouse = {};
 
@@ -61,43 +61,68 @@ void mouse_update(Game_Window window, Game_Mouse* mouse)
 	mouse->norm_y = (mouse->norm_y * 2) - 1;
 }
 
-vec3 get_mouse_word_dir(Game_Mouse mouse, mat4 proj_view)
+vec3 get_mouse_world_dir(Game_Mouse mouse, mat4 proj_view)
 {
-	proj_view = glm::inverse(proj_view);
+	proj_view = glm::inverse(proj_view); //what is an unproject matrix?
 
 	vec4 ray_near = vec4(mouse.norm_x, mouse.norm_y, -1, 1); // near plane is z = -1
 	vec4 ray_far  = vec4(mouse.norm_x, mouse.norm_y,  0, 1);
 
-	// these are actually using inverse_proj_view
+	// these are actually using inverse(proj_view)
 	ray_near = proj_view * ray_near; ray_near /= ray_near.w;
 	ray_far  = proj_view * ray_far;  ray_far  /= ray_far.w;
 
 	return glm::normalize(ray_far - ray_near);
 }
 
-void world_set_selected_tile(Game_Mouse mouse, vec3 camera_pos, Game_World world)
+struct Game_Button
 {
-	// WARNING TODO : please speed this up thanks
+	char is_pressed;
+	char was_pressed;
+	u16  id;
+};
 
-	vec3 test_pos = camera_pos;
-
-	static uint last_selected_tile_index = 0;
-	world.tiles[last_selected_tile_index].is_selected = false;
-
-	for (uint i = 0; i < 128; ++i)
+#define NUM_GAME_KEYBOARD_BUTTONS 6
+struct Game_Keyboard
+{
+	union
 	{
-		for (uint x = 0;  x < TILE_COUNT_X; ++x) {
-		for (uint z = 0;  z < TILE_COUNT_Z; ++z)
-		{
-			uint index = (x * 16) + z;
-			if (point_in_cube(test_pos, Cube_Collider{ ivec3(x, 0, z), ivec3(x + 1, 1, z + 1) }))
-			{
-				world.tiles[index].is_selected = true;
-				last_selected_tile_index = index;
-				return;
-			}
-		} }
+		Game_Button buttons[NUM_GAME_KEYBOARD_BUTTONS];
 
-		test_pos += mouse.world_dir * .5f;
+		struct
+		{
+			Game_Button ESC, SPACE;
+			Game_Button W, A, S, D;
+		};
+	};
+};
+
+force_inline void game_keyboard_init(Game_Keyboard* keyboard)
+{
+	keyboard->ESC   = { false, false, GLFW_KEY_ESCAPE };
+	keyboard->SPACE = { false, false, GLFW_KEY_SPACE  };
+
+	keyboard->W = { false, false, GLFW_KEY_W };
+	keyboard->A = { false, false, GLFW_KEY_S };
+	keyboard->S = { false, false, GLFW_KEY_A };
+	keyboard->D = { false, false, GLFW_KEY_D };
+}
+
+void update_keyboard(Game_Keyboard* keyboard, Game_Window window)
+{
+	for (uint i = 0; i < NUM_GAME_KEYBOARD_BUTTONS; ++i)
+	{
+		bool is_pressed = (glfwGetKey(window.instance, keyboard->buttons[i].id) == GLFW_PRESS);
+
+		if (is_pressed)
+		{
+			keyboard->buttons[i].was_pressed = (keyboard->buttons[i].is_pressed == true);
+			keyboard->buttons[i].is_pressed = true;
+		}
+		else
+		{
+			keyboard->buttons[i].was_pressed = (keyboard->buttons[i].is_pressed == true);
+			keyboard->buttons[i].is_pressed  = false;
+		}
 	}
 }

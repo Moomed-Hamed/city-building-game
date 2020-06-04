@@ -2,7 +2,7 @@
 #include "intermediary.h"
 
 /*
- 'model' file format
+ 'model' binary file format
   - (uint) num_verts
   - (uint) num_indicies
   ~ (uint) num_joints
@@ -248,7 +248,7 @@ void update_animation(Animation* anim, float DeltaTime)
 	}
 }
 
-void fill_render_data(Render_Data* renderdata, uint reserved_mem_size, const char* path, const char* vertsource, const char* fragsource)
+void init(Render_Data* renderdata, uint reserved_mem_size, const char* path, const char* vertsource, const char* fragsource)
 {
 	Model_Data model_data;
 	load_model(&model_data, path);
@@ -307,7 +307,7 @@ void fill_render_data(Render_Data* renderdata, uint reserved_mem_size, const cha
 	renderdata->proj_view = glGetUniformLocation(renderdata->shader_program, "ProjView");
 	renderdata->view_pos = glGetUniformLocation(renderdata->shader_program, "ViewPos");
 }
-void fill_render_data(Render_Data_UV* renderdata, uint reserved_mem_size, const char* path, const char* vertsource, const char* fragsource)
+void init(Render_Data_UV* renderdata, uint reserved_mem_size, const char* path, const char* vertsource, const char* fragsource)
 {
 	Model_Data_UV model_data = {};
 	load_model(&model_data, path);
@@ -374,7 +374,7 @@ void fill_render_data(Render_Data_UV* renderdata, uint reserved_mem_size, const 
 	renderdata->proj_view = glGetUniformLocation(renderdata->shader_program, "ProjView");
 	renderdata->view_pos = glGetUniformLocation(renderdata->shader_program, "ViewPos");
 }
-void fill_render_data(Render_Data_Anim* renderdata, uint reserved_mem_size, const char* path, const char* vertsource, const char* fragsource)
+void init(Render_Data_Anim* renderdata, uint reserved_mem_size, const char* path, const char* vertsource, const char* fragsource)
 {
 	Model_Data_Anim model_data;
 	load_model(&model_data, path);
@@ -476,7 +476,7 @@ void fill_render_data(Render_Data_Anim* renderdata, uint reserved_mem_size, cons
 	renderdata->view_pos = glGetUniformLocation(renderdata->shader_program, "ViewPos");
 }
 
-void draw_render_data(Render_Data data, mat4* projview, vec3 viewpos, uint vb_size = NULL, byte* vb_data = NULL, uint num_instances = 1)
+void draw(Render_Data data, mat4* projview, vec3 viewpos, uint vb_size = NULL, byte* vb_data = NULL, uint num_instances = 1)
 {
 	glBindVertexArray(data.VAO);
 
@@ -492,7 +492,7 @@ void draw_render_data(Render_Data data, mat4* projview, vec3 viewpos, uint vb_si
 
 	glDrawElementsInstanced(GL_TRIANGLES, data.num_indicies, GL_UNSIGNED_INT, 0, num_instances);
 }
-void draw_render_data(Render_Data_UV data, mat4* projview, vec3 viewpos, uint vb_size = NULL, byte* vb_data = NULL, uint num_instances = 1)
+void draw(Render_Data_UV data, mat4* projview, vec3 viewpos, uint vb_size = NULL, byte* vb_data = NULL, uint num_instances = 1)
 {
 	glBindVertexArray(data.VAO);
 
@@ -508,7 +508,7 @@ void draw_render_data(Render_Data_UV data, mat4* projview, vec3 viewpos, uint vb
 
 	glDrawElementsInstanced(GL_TRIANGLES, data.num_indicies, GL_UNSIGNED_INT, 0, num_instances);
 }
-void draw_render_data(Render_Data_Anim data, mat4* projview, vec3 viewpos, uint vb_size = NULL, byte* vb_data = NULL, uint num_instances = 1)
+void draw(Render_Data_Anim data, mat4* projview, vec3 viewpos, uint vb_size = NULL, byte* vb_data = NULL, uint num_instances = 1)
 {
 	glBindVertexArray(data.VAO);
 
@@ -526,6 +526,13 @@ void draw_render_data(Render_Data_Anim data, mat4* projview, vec3 viewpos, uint 
 	}
 
 	glDrawElementsInstanced(GL_TRIANGLES, data.num_indicies, GL_UNSIGNED_INT, 0, num_instances);
+}
+
+void gl_add_attrib_vec3(uint id, uint stride, uint offset)
+{
+	glVertexAttribPointer(id, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
+	glVertexAttribDivisor(id, 1);
+	glEnableVertexAttribArray(id);
 }
 
 /*------------------------------- Default haders -------------------------------*/

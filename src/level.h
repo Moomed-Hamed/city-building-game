@@ -1,103 +1,111 @@
 #pragma once
-#include "input.h"
+#include "physics.h"
 
-struct Game_Level
+#define GAME_MAP_X 16
+#define GAME_MAP_Z 16
+#define GAME_MAP_Y 1
+#define GAME_MAP_SIZE ( GAME_MAP_X * GAME_MAP_Z * GAME_MAP_Y )
+#define GAME_MAP_INDEX(x,y,z) (((x) + (16 * (z))) + (256 * (y)))
+
+#define AIR_TILE   0
+#define STONE_TILE 1
+#define DIRT_TILE  2
+#define GRASS_TILE 3
+#define SAND_TILE  4
+#define WATER_TILE 5
+#define LAVA_TILE  6
+
+typedef uint8 Tile;
+
+struct Game_Map
 {
-	uint num_friendly_untis, num_enemy_units, num_props;
-	uint turn_count;
-	bool is_player_turn;
+	Tile* tiles;
 
-	Unit* friendly_untis;
-	Unit* enemy_untis;
-	Prop* props;
-
-	Tile_Map terrain_map; // this is just scenery
-	Tile_Map unit_map; // this is where the game is played
+	int selected_tile_index; // < 0 = none selected
 };
 
-Game_Level make_game_level(uint x_length, uint z_length)
+void game_map_init(Game_Map* map)
 {
-	Game_Level level = {};
-	level.is_player_turn = true;
-
-	level.friendly_untis = Alloc(Unit, MAX_UNITS);
-	level.enemy_untis    = Alloc(Unit, MAX_UNITS);
-	level.props          = Alloc(Prop, MAX_PROPS);
-
-	tile_map_init(&level.terrain_map, x_length, z_length);
-	tile_map_init(&level.unit_map   , x_length, z_length);
-
-	return level;
+	map->selected_tile_index = -1;
+	map->tiles = (Tile*)malloc(GAME_MAP_SIZE * sizeof(Tile));
+	memset(map->tiles, 1, GAME_MAP_SIZE * sizeof(Tile));
 }
 
-void free_game_level(Game_Level* level)
+// ------ Rendering ------ //
+
+struct Tile_Renderable
 {
-	Free(level->friendly_untis);
-	Free(level->enemy_untis);
-	Free(level->props);
+	vec3 position;
+	vec2 tex_coord;
+};
 
-	*level = {};
-}
-
-void spawn_friendly_unit(Game_Level* level, uint x, uint z)
+struct Tile_Renderer : Render_Data_UV
 {
-	if (level->num_friendly_untis >= MAX_UNITS) return;
+	uint num_tiles;
+	Tile_Renderable* memory;
+};
 
-	uint index = level->num_friendly_untis++;
-	level->friendly_untis[index].type = 1;
-	level->friendly_untis[index].team = 1;
-	level->friendly_untis[index].x = x;
-	level->friendly_untis[index].z = z;
-}
-
-void update_level(Game_Level* level)
+vec2 tile_get_tex_offset(Tile tile)
 {
-	Game_Level lvl = *level;
-
-	uint num_friendly_units;
-	uint num_enemy_units;
-
-	// units
-	for (uint i = 0; i < lvl.unit_map.num_tiles; i++)
+	switch (tile)
 	{
-		u32 type = lvl.unit_map.tiles[i].type;
+	case 1: return vec2(0.0, 0.00);  // stone
+	case 2: return vec2(.25, 0.00);  // dirt
+	case 3: return vec2(.50, 0.00);  // grass
+	case 4: return vec2(.75, 0.00);  // sand
+	case 5: return vec2(0.0, -.25);  // wood
+	case 6: return vec2(.25, -.25);  // wood plank
+	case 7: return vec2(.50, -.25);  // clay brick
+	case 8: return vec2(.75, -.25);  // stone brick
+	case 9: return vec2(0.0, -.50);  // ore
+	case 10: return vec2(.25, -.50);
+	case 11: return vec2(.50, -.50);
+	case 12: return vec2(.75, -.50);
+	case 13: return vec2(0.0, -.75);
+	case 14: return vec2(.25, -.75);
+	case 15: return vec2(.50, -.75);
 
-		if (type == 0) continue;
-
-		switch (type)
-		{
-			case 1: break;
-		}
+	default: return vec2(.75, -.75); //invalid block
 	}
 }
 
-struct Level_Renderer
+void tiles_to_renderable(Tile* tiles, Tile_Renderer* renderer)
 {
-	Terrain_Renderer terrain;
-	Unit_Renderer friendly_units;
-	Unit_Renderer enemy_units;
-	Prop_Renderer props;
-};
+	renderer->num_tiles= 0;
 
-void level_to_renderable(Game_Level level, Level_Renderer* renderer)
-{
-	terrain_to_renderable(NULL, &renderer->terrain);
-	friendly_units_to_renderable(level.friendly_untis, &renderer->friendly_units);
-	enemy_units_to_renderable(level.enemy_untis, &renderer->enemy_units);
-	props_to_renderable(level.props, &renderer->props);
+	Tile_Renderable* tile_mem = renderer->memory;
+
+	for (uint x = 0; x < GAME_MAP_X; ++x) {
+	for (uint z = 0; z < GAME_MAP_Z; ++z) {
+	for (uint y = 0; y < GAME_MAP_Y; ++y)
+	{
+		uint index = GAME_MAP_INDEX(x, y, z);
+	
+		Tile tile = tiles[index];
+		if (!tile) continue; // don't render air
+
+		tile_mem->position  = vec3(x, y, z);
+		tile_mem->tex_coord = tile_get_tex_offset(tile);
+		tile_mem++;
+		renderer->num_tiles++;
+	} } }
 }
-
-void draw_level(Level_Renderer renderer, mat4* proj_view, vec3 position)
+void tile_renderer_init(Tile_Renderer* renderer)
 {
-	draw(renderer.terrain, proj_view, position, renderer.terrain.num_blocks * sizeof(Terrain_Block_Renderable),
-		(byte*)renderer.terrain.blocks, renderer.terrain.num_blocks);
+	renderer->memory = Alloc(Tile_Renderable, GAME_MAP_SIZE);
 
-	draw(renderer.friendly_units, proj_view, position, renderer.friendly_units.num_units * sizeof(Unit_Renderable),
-		(byte*)renderer.friendly_units.units, renderer.friendly_units.num_units);
+	render_data_init(renderer, sizeof(Tile_Renderable) * GAME_MAP_SIZE,
+		"assets/models/block.model", SolidVertSource, SolidFragSource, "assets/textures/texture_atlas.bmp");
 
-	draw(renderer.enemy_units, proj_view, position, renderer.enemy_units.num_units * sizeof(Unit_Renderable),
-		(byte*)renderer.enemy_units.units, renderer.enemy_units.num_units);
+	// vert, norm, tex
+	gl_add_attrib_vec3(3, sizeof(Tile_Renderable), 0); // pos
+	gl_add_attrib_vec2(4, sizeof(Tile_Renderable), sizeof(vec3)); // tex coord
+}
+void tile_renderer_draw(Tile_Renderer* renderer, Tile* tiles, mat4* proj_view, vec3 viewpos)
+{
+	tiles_to_renderable(tiles, renderer);
 
-	draw(renderer.props, proj_view, position, renderer.props.num_props * sizeof(Prop_Renderable),
-		(byte*)renderer.props.props, renderer.props.num_props);
+	glBindTexture(GL_TEXTURE_2D, renderer->texture_id);
+	render_data_draw(*renderer, proj_view, viewpos, renderer->num_tiles * sizeof(Tile_Renderable),
+		(byte*)renderer->memory, renderer->num_tiles);
 }

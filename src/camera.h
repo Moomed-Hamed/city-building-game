@@ -1,45 +1,39 @@
 #pragma once
 #include "renderer.h"
 
+#define CAM_FORWARD	0
+#define CAM_BACKWARD	1
+#define CAM_LEFT		2
+#define CAM_RIGHT	   3
+
 struct Camera
 {
-	vec3 Position;
-	vec3 Velocity;
-
-	vec3 Front, Right, Up;
-	float Yaw, Pitch;
+	vec3 position;
+	vec3 front, right, up;
+	float yaw, pitch;
 };
 
-void init_camera(Camera* camera, vec3 pos = { -16, 16, 0 }, vec3 vel = { 0, 0, 0 })
+void camera_update_dir(Camera* camera, float dx, float dy, float sensitivity = 0.003)
 {
-	*camera = { pos, vel };
+	camera->yaw   += (dx * sensitivity) / TWOPI;
+	camera->pitch += (dy * sensitivity) / TWOPI;
+
+	if (camera->pitch >  PI / 2.01) camera->pitch =  PI / 2.01;
+	if (camera->pitch < -PI / 2.01) camera->pitch = -PI / 2.01;
+
+	camera->front.y = sin(camera->pitch);
+	camera->front.x = cos(camera->pitch) * cos(camera->yaw);
+	camera->front.z = cos(camera->pitch) * sin(camera->yaw);
+
+	camera->front = normalize(camera->front);
+	camera->right = normalize(cross(camera->front, vec3(0, 1, 0)));
+	camera->up    = normalize(cross(camera->right, camera->front));
 }
 
-void update_camera(Camera* camera, float xoffset, float yoffset)
+void camera_update_pos(Camera* camera, int direction, float distance)
 {
-	camera->Yaw   += (xoffset * .005f) / TWOPI;
-	camera->Pitch += (yoffset * .005f) / TWOPI;
-
-	if (camera->Pitch >  PI / 2.01) camera->Pitch =  PI / 2.01;
-	if (camera->Pitch < -PI / 2.01) camera->Pitch = -PI / 2.01;
-
-	camera->Front.y = sin(camera->Pitch);
-	camera->Front.x = cos(camera->Pitch) * cos(camera->Yaw);
-	camera->Front.z = cos(camera->Pitch) * sin(camera->Yaw);
-
-	camera->Front = glm::normalize(camera->Front);
-	camera->Right = glm::normalize(glm::cross(camera->Front, vec3(0, 1, 0)));
-	camera->Up    = glm::normalize(glm::cross(camera->Right, camera->Front));
-}
-
-#define CAMERA_FORWARD	0
-#define CAMERA_BACKWARD	1
-#define CAMERA_LEFT		2
-#define CAMERA_RIGHT	   3
-void camera_move(Camera* camera, int direction, float velocity, float DeltaTime)
-{
-	if (direction == CAMERA_FORWARD ) camera->Position += camera->Front * velocity * DeltaTime;
-	if (direction == CAMERA_LEFT    ) camera->Position -= camera->Right * velocity * DeltaTime;
-	if (direction == CAMERA_RIGHT   ) camera->Position += camera->Right * velocity * DeltaTime;
-	if (direction == CAMERA_BACKWARD) camera->Position -= camera->Front * velocity * DeltaTime;
+	if (direction == CAM_FORWARD ) camera->position += camera->front * distance;
+	if (direction == CAM_LEFT    ) camera->position -= camera->right * distance;
+	if (direction == CAM_RIGHT   ) camera->position += camera->right * distance;
+	if (direction == CAM_BACKWARD) camera->position -= camera->front * distance;
 }

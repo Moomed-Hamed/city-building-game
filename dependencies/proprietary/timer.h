@@ -1,6 +1,11 @@
+//-----------------------------------------------------------------
+//  Name        : timer
+//  Last Updated: 12/7/2020
+//-----------------------------------------------------------------
+
 #pragma once
-#include "intermediary.h"
-#include <chrono>
+#include <Windows.h>
+#include "types.h"
 
 // while the raw timestamp can be used for relative
 // performence measurements, it does not correspond
@@ -32,20 +37,15 @@ force_inline int64 calculate_microseconds_elapsed(Timestamp start, Timestamp end
 	QueryPerformanceFrequency(&win32_performance_frequency);
 
 	// i think (end - start) corresponds directly to cpu clock cycles
+	// but i'm not sure
 	return (end - start) / win32_performance_frequency.QuadPart;
 }
 
 void os_sleep(uint milliseconds)
 {
-#define DESIRED_SCHEDULER_GRANULARITY 1 //milliseconds
+#define DESIRED_SCHEDULER_GRANULARITY 1 // milliseconds
 	HRESULT SchedulerResult = timeBeginPeriod(DESIRED_SCHEDULER_GRANULARITY);
 #undef DESIRED_SCHEDULER_GRANULARITY
 
 	Sleep(milliseconds);
-}
-
-// not sure if this is a good idea
-void do_os_bs()
-{
-
 }

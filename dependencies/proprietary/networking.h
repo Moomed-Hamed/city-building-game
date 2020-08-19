@@ -1,165 +1,185 @@
+//-----------------------------------------------------------------
+//  Name        : Networking
+//  Purpose     : Make server/client programs simple
+//  Last Updated: 12/8/2020
+//-----------------------------------------------------------------
 #pragma once
-#include "intermediary.h"
 
-#define NETWORK_ERROR(err) out("NETWORK ERROR: " << err);
+//#undef UNICODE // is this necessary?
+#pragma comment (lib, "Ws2_32.lib")
 
-typedef struct Server;
-typedef struct Client;
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <Windows.h>
 
-struct Network_Message
-{
-	int size;
-	char* data;
-};
+#include "types.h"
+#include "debug.h"
+
+#define NETWORK_ERROR(err) out("NETWORK ERROR: " << err)
+
+#define MAX_CLIENTS 32
+
+#define STATUS_FREE         0
+#define STATUS_CONNECTED    1
+#define STATUS_DISCONNECTED 2
 
 struct Server_Connection
 {
 	uint status;
-
-	char ip[32];
-	SOCKET connect_socket;
+	SOCKET socket;
 };
 
 struct Server
 {
-	char name[64];
-
-	uint num_clients, max_clients;
-	Server_Connection clients[8];
+	uint num_active_clients, max_clients;
+	Server_Connection clients[MAX_CLIENTS];
 
 	SOCKET listen_socket;
 };
 
-// prepares the server for recieving connections
-void init_server(Server* server, const char* ip, const char* port, int max_clients = 8)
+int server_init(Server* server, const char* ip, const char* port, int max_clients = 1)
 {
 	WSADATA wsa_data;
 	addrinfo* result = NULL;
 
 	// Initialize Winsock
-	int res = WSAStartup(MAKEWORD(2, 2), &wsa_data);
-	if (res != 0)
+	int err = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+	if (err != 0)
 	{
-		NETWORK_ERROR("WSAStartup failed | Error code: " << res);
-		return;
+		NETWORK_ERROR("WSAStartup failed | Error code: " << err);
+		return -1;
 	}
 
 	addrinfo hints = {};
-	hints.ai_family = AF_INET;
+	hints.ai_family   = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_protocol = IPPROTO_TCP;
-	hints.ai_flags = AI_PASSIVE;
+	hints.ai_flags    = AI_PASSIVE;
 
 	// Resoooolve server address and port
-	if ((res = getaddrinfo(NULL, port, &hints, &result)) != 0)
+	if ((err = getaddrinfo(NULL, port, &hints, &result)) != 0)
 	{
 		NETWORK_ERROR("getaddrinfo failed | Error code: " << WSAGetLastError());
 		WSACleanup();
-		return;
+		return -1;
 	}
 
-	// Create a SOCKET for connecting to the server
+	// Create a SOCKET to listen for connections
 	SOCKET listen_socket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
 	if (listen_socket == INVALID_SOCKET)
 	{
 		NETWORK_ERROR("socket creation failed | Error code: " << WSAGetLastError());
 		freeaddrinfo(result);
 		WSACleanup();
-		return;
+		return -1;
 	}
 
 	// Setup the TCP listening socket
-	res = bind(listen_socket, result->ai_addr, (int)result->ai_addrlen);
-	if (res == SOCKET_ERROR)
+	err = bind(listen_socket, result->ai_addr, (int)result->ai_addrlen);
+	if (err == SOCKET_ERROR)
 	{
 		NETWORK_ERROR("bind() failed | Error code : " << WSAGetLastError());
 		freeaddrinfo(result);
 		closesocket(listen_socket);
 		WSACleanup();
-		return;
+		return -1;
 	}
 
 	freeaddrinfo(result);
 
-	res = listen(listen_socket, max_clients);
-	if (res == SOCKET_ERROR)
+	err = listen(listen_socket, max_clients);
+	if (err == SOCKET_ERROR)
 	{
 		NETWORK_ERROR("listen() failed | Error code: " << WSAGetLastError());
 		closesocket(listen_socket);
 		WSACleanup();
-		return;
+		return -1;
 	}
 
-	// FIONBIO sets blocking mode for a socket. mode = 0 for blocking, mode != 0 for non-blocking
+	// FIONBIO sets blocking mode for a socket, mode = 0 for blocking, mode != 0 for non-blocking
 	u_long blocking_mode = 1; // non-blocking
 	Sleep(1);
-	//res = ioctlsocket(listen_socket, FIONBIO, &blocking_mode);
+	err = ioctlsocket(listen_socket, FIONBIO, &blocking_mode);
 
 	*server = {};
 	server->max_clients = max_clients;
 	server->listen_socket = listen_socket;
+
+	return 0;
 }
 
-// accepts connection requests & removes disconnected clients
+// handles new connections & disconnected clients
 int server_update_connections(Server* server)
 {
 	SOCKET test_socket = INVALID_SOCKET;
 
 	for (uint i = 0; i < server->max_clients; ++i)
 	{
-		if (server->clients[i].status != 0) continue;
+		if (server->clients[i].status != STATUS_FREE)
+		{
+			if (recv(server->clients[i].socket, NULL, 0, 0) == SOCKET_ERROR && WSAGetLastError() == WSAECONNRESET)
+			{
+				//out("-- client " << i << " disconnected --");
+				server->clients[i] = {};
+				server->num_active_clients -= 1;
+			} continue;
+		}
 
-		test_socket = accept(server->listen_socket, NULL, NULL);
-		if (test_socket == INVALID_SOCKET) continue;
+		if ((test_socket = accept(server->listen_socket, NULL, NULL)) != INVALID_SOCKET)
+		{
+			u_long mode = 1; // set socket to non-blocking mode
+			ioctlsocket(test_socket, FIONBIO, &mode);
 
-		//u_long mode = 1;
-		//ioctlsocket(test_socket, FIONBIO, &mode);
+			server->clients[i].status = STATUS_CONNECTED;
+			server->clients[i].socket = test_socket;
+			server->num_active_clients += 1;
 
-		server->clients[i].status = 1;
-		server->clients[i].connect_socket = test_socket;
-		server->num_clients += 1;
-
-		out("new connection established! " << i); return 1;
+			//out("-- new connection established!--\n -- " << i + 1 << " connection(s) --"); return 1;
+		}
 	}
 
-	return server->num_clients;
+	return server->num_active_clients;
 }
 
-Network_Message server_recieve(Server server, uint id, uint max_size = 256)
+//receive msg from server.clients[id]
+int server_recieve(Server server, byte* memory, uint max_size = 256, uint id = 0)
 {
-	Network_Message ret = {};
-	ret.data = (char*)malloc(max_size);
-	ret.size = recv(server.clients[id].connect_socket, ret.data, max_size, 0);
-
-	return ret;
+	return recv(server.clients[id].socket, (char*)memory, max_size, 0);
 }
 
-//sends msg to the client at clients[id]
-int server_send(Server server, uint client_id, char* msg, uint size)
+//sends msg to server.clients[id]
+int server_send(Server server, byte* msg, uint msg_size, uint client_id = 0)
 {
-	return send(server.clients[client_id].connect_socket, msg, size, 0);
+	return send(server.clients[client_id].socket, (char*)msg, msg_size, 0);
+}
+
+//sends msg to all clients
+int server_send_to_all(Server server, byte* msg, uint msg_size)
+{
+	//TODO : IMPLEMENT
+	return send(server.clients[0].socket, (char*)msg, msg_size, 0);
 }
 
 struct Client
 {
-	SOCKET connect_socket;
+	SOCKET socket;
 };
 
-// connects to a server at the given ip, if succsesful sends client info
-void init_client(Client* client, const char* ip, const char* port)
+// connects to a server at ip
+int client_init(Client* client, const char* ip, const char* port)
 {
-	int res = 0;
+	int err = 0;
 	addrinfo* result = NULL;
 
 	print("Connecting to %s - ", ip);
 
 	// Initialize Winsock
 	WSADATA wsa_data = {};
-	res = WSAStartup(MAKEWORD(2, 2), &wsa_data);
-	if (res != 0)
+	err = WSAStartup(MAKEWORD(2, 2), &wsa_data);
+	if (err != 0)
 	{
-		NETWORK_ERROR("WSAStartup failed | Error code: " << res);
-		return;
+		NETWORK_ERROR("WSAStartup failed | Error code: " << err);
+		return -1;
 	}
 
 	addrinfo hints = {};
@@ -169,10 +189,11 @@ void init_client(Client* client, const char* ip, const char* port)
 	hints.ai_flags = AI_PASSIVE;
 
 	// Resoooolve server address and port
-	if ((res = getaddrinfo(ip, port, &hints, &result)) != 0)
+	if ((err = getaddrinfo(ip, port, &hints, &result)) != 0)
 	{
 		NETWORK_ERROR("getaddrinfo failed | Error code: " << WSAGetLastError());
 		WSACleanup();
+		return -1;
 	}
 
 	SOCKET connect_socket = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
@@ -181,76 +202,82 @@ void init_client(Client* client, const char* ip, const char* port)
 		NETWORK_ERROR("socket creation failed | Error code: " << WSAGetLastError());
 		freeaddrinfo(result);
 		WSACleanup();
+		return -1;
 	}
 
 	// Connect to server.
-	res = connect(connect_socket, result->ai_addr, (int)result->ai_addrlen);
-	if (res == SOCKET_ERROR || connect_socket == INVALID_SOCKET)
+	err = connect(connect_socket, result->ai_addr, (int)result->ai_addrlen);
+	if (err == SOCKET_ERROR || connect_socket == INVALID_SOCKET)
 	{
 		closesocket(connect_socket);
 		NETWORK_ERROR("could not connect to " << ip);
-		return;
-	} else out("connected successfuly!");
+		return -1;
+	}
+	else out("connected successfuly!");
 
 	freeaddrinfo(result);
 
+	u_long mode = 1;
+	ioctlsocket(connect_socket, FIONBIO, &mode);
+
 	*client = {};
-	client->connect_socket = connect_socket;
+	client->socket = connect_socket;
+
+	return 0;
+}
+int client_receive(Client client, byte* memory, uint max_size = 256)
+{
+	return recv(client.socket, (char*)memory, max_size, 0);
+}
+int client_send(Client client, byte* msg, uint size)
+{
+	return send(client.socket, (char*)msg, size, 0);
 }
 
-Network_Message client_receive(Client client, uint max_size = 256)
+/*
+#include "networking.h"
+#include <cstdlib>
+
+//client
+int maind()
 {
-	Network_Message ret = {};
-	ret.data = (char*)malloc(max_size);
-	ret.size = recv(client.connect_socket, ret.data, max_size, 0);
-
-	return ret;
-}
-
-int client_send(Client client, char* msg, uint size)
-{
-	return send(client.connect_socket, msg, size, 0);
-}
-
-int test_client()
-{
-	char client_msg[256] = {};
-
-
 	Client client = {};
-	init_client(&client, "192.168.1.3", "42069");
-	std::cout << client_receive(client).data;
-	//client_send(client, client_msg, sizeof(client_msg));
-
-	stop; return 0;
-}
-int test_server()
-{
-	char client_msg[] = "Hello Client!";
-
-	Server server = {};
-	init_server(&server, "192.168.1.3", "42069", 8);
-
-	while (!server_update_connections(&server));
-
-	stop;
+	client_init(&client, "192.168.1.3", "42069");
 
 	while (1)
 	{
-		for (int i = 0; i < server.max_clients; ++i)
-		{
-			if (server.clients[i].status != 0 && server.clients[i].connect_socket != INVALID_SOCKET)
-			{
-				//out("recieving from " << i);
-				//Network_Message msg = server_recieve(server, i);
-				//out("size = " << msg.size << '\n' << msg.data);
+		char message[256] = {};
 
-				std::cout << server_send(server, i, client_msg, sizeof(client_msg));
-			}
-		}
+		std::cin >> message;
 
-		Sleep(64);
+		out(client_send(client, message, sizeof(message)));
+		Sleep(100);
 	}
 
-	stop; return 0;
+	return 0;
 }
+
+//server
+int main()
+{
+	Server server = {};
+	server_init(&server, "192.168.1.3", "42069", 4);
+
+	while (!server_update_connections(&server)) Sleep(100);
+
+	while (1)
+	{
+		server_update_connections(&server);
+
+		for (int i = 0; i < server.max_clients; ++i)
+		{
+			if (server.clients[i].status == STATUS_FREE) continue;
+
+			byte msg[256] = {};
+			if (server_recieve(server, msg, 255, i) > 0) print(" CLIENT %d: %s\n", i, msg);
+		} Sleep(100);
+	}
+
+	return 0;
+}
+*/

@@ -1,88 +1,34 @@
+//-----------------------------------------------------------------
+//  Name        : Directory Utilities
+//  Purpose     : Provide directory handling library
+//  Last Updated: 9/8/2020
+//-----------------------------------------------------------------
+
 #pragma once
 
-//-----------------------------------------------------------------
-//  Author:         Mohamed Hamed
-//  Last Updated:   Date: 10/5/2020
-//  Description :   This is *WINDOWS ONLY* file handling code
-//-----------------------------------------------------------------
+#include "types.h"
+#include "debug.h"
+#include "memory.h"
 
-#include <Windows.h>
-#include <iostream>
-#include <GLM/glm.hpp>
+#define DIRECTORY_ERROR(str) std::cout << "DIRECTORY ERROR: " << str << '\n';
 
-#define out(val) std::cout << ' ' << val << '\n'
-
-#define Alloc(type, size) new type[size]
-#define Free(ptr) delete[] ptr
-
-typedef unsigned int uint;
-
-// read from file into buf until newline or EOF is found
-int get_line(FILE* file, char* buf)
-{
-	int i = 0;
-	char c = ' ';
-
-	while (1)
-	{
-		c = fgetc(file);
-
-		if (!i && (c == ' ' || c == '\t')) continue;
-
-		if (c == EOF) return EOF;
-
-		buf[i++] = c;
-
-		if (c == '\n') return 0;
-	}
-}
-
-// skip chars in file until a newline or EOF is found
-void skip_line(FILE* file)
-{
-	char c = ' ';
-
-	while (1)
-	{
-		c = fgetc(file);
-		if (c == '\n' || c == EOF) return;
-	}
-}
-
-// write from buf into file until newline is found
-void write_line(FILE* file, char* buf)
-{
-	int i = 0;
-	do fputc(buf[i], file); while (buf[i++] != '\n');
-}
-
-struct File_Name
-{
-	char* Name;
-	char* Extension; // txt, jpg, wav, etc.
-};
-
-//WARNING: there is a harcoded limit to the number of files here
+//WARNING: harcoded file name limit here
 #define MAX_DIRECTORY_FILES 256
 struct Directory
 {
-	uint NumFiles;
-	File_Name Files[MAX_DIRECTORY_FILES];
-	//char* Path; // not sure if this should be supported
+	uint num_files;
+	char* names[MAX_DIRECTORY_FILES];
 };
 
-// fills a Directory struct (involves allocating memory)
-// free this structure's memory with the free_directory function
+// allocates memory & fills directory struct. free the memory with free_directory
 void parse_directory(Directory* dir, const char* path)
 {
-	WIN32_FIND_DATA FoundFile;
-	HANDLE Find = NULL;
-
 	char filepath[256] = {};
-	sprintf(filepath, "%s\\*.*", path); // file mask: *.* = get everything
+	snprintf(filepath, 256, "%s\\*.*", path); // file mask: *.* = get everything
 
-	Find = FindFirstFile(filepath, &FoundFile);
-	if (Find == INVALID_HANDLE_VALUE) { printf("Path not found: [%s]\n", path); return; }
+	WIN32_FIND_DATA FoundFile;
+	HANDLE Find = FindFirstFile(filepath, &FoundFile);
+	if (Find == INVALID_HANDLE_VALUE) { print("Path not found: [%s]\n", path); return; }
 
 	//FindFirstFile always returns "." & ".." as first two directories
 	while (!strcmp(FoundFile.cFileName, ".") || !strcmp(FoundFile.cFileName, "..")) FindNextFile(Find, &FoundFile);
@@ -92,16 +38,9 @@ void parse_directory(Directory* dir, const char* path)
 	{
 		uint length = strlen(FoundFile.cFileName);
 
-		dir->Files[num_files].Name = Alloc(char, length + 1);
-		memset(dir->Files[num_files].Name, 0, length + 1);
-
-		for (uint i = 0, j = 0; i < length; ++i)
-		{
-			if (FoundFile.cFileName[i] == '.')
-				dir->Files[num_files].Extension = dir->Files[num_files].Name + i + 1;
-			else
-				dir->Files[num_files].Name[i] = FoundFile.cFileName[i];
-		}
+		dir->names[num_files] = Alloc(char, length + 1);
+		dir->names[num_files][length] = 0;
+		memcpy(dir->names[num_files], FoundFile.cFileName, length);
 
 		++num_files;
 
@@ -109,25 +48,60 @@ void parse_directory(Directory* dir, const char* path)
 
 	FindClose(Find);
 
-	dir->NumFiles = num_files;
+	dir->num_files = num_files;
 
 	//	out("Finished parsing " << path << "/ and found " << num_files << " files");
 }
 
-// prints the file count, names, and extensions to std output
+// prints file count, names, and extensions to std output
 void print_directory(Directory dir)
 {
-	out("directory contains " << dir.NumFiles << " files");
-	for (uint i = 0; i < dir.NumFiles; ++i) 
-		printf(" %d: %s.%s\n", i + 1, dir.Files[i].Name, dir.Files[i].Extension);
+	print("directory contains %d files", dir.num_files);
+	for (uint i = 0; i < dir.num_files; ++i)
+		print(" %d: %s\n", i + 1, dir.names[i]);
 }
 
 // frees all memory used by this directory struct
 void free_directory(Directory* dir)
 {
-	for (uint i = 0; i < dir->NumFiles; ++i) Free(dir->Files[i].Name);
+	for (uint i = 0; i < dir->num_files; ++i) Free(dir->names[i]);
 	*dir = {};
 }
 
-#undef Alloc
-#undef Free
+/*
+char* get_file_names_without_extension(Directory dir)
+{
+	char* buf;
+
+	for (uint i = 0; i < dir.num_files; i++)
+	{
+		uint length = strlen(dir.names[i]);
+
+		for (uint j = 0; i < length; ++i)
+		{
+			if (dir.names[i][j] == '.')
+				buf[num_files].extension = dir->file_names[num_files].name + i + 1;
+			else
+				buf[num_files].name[i] = FoundFile.cFileName[i];
+		}
+	}
+}
+
+char* get_file_extension(Directory dir)
+{
+	char* buf;
+
+	for (uint i = 0; i < dir.num_files; i++)
+	{
+		uint length = strlen(dir.names[i]);
+
+		for (uint j = 0; i < length; ++i)
+		{
+			if (dir.names[i][j] == '.')
+				buf[num_files].extension = dir->file_names[num_files].name + i + 1;
+			else
+				buf[num_files].name[i] = FoundFile.cFileName[i];
+		}
+	}
+}
+*/

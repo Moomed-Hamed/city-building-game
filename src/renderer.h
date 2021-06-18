@@ -1,242 +1,255 @@
-#pragma once
-#include "intermediary.h"
+#include "window_and_input.h"
 
-/*
- 'model' binary file format
-  - (uint)  num_verts
-  - (uint)  num_indicies
-  ~ (uint)  num_joints
-  - (vec3)  positions
-  - (vec3)  normals
-  ~ (vec2)  textures
-  ~ (vec3)  weights
-  ~ (ivec3) joint_ids
-  - (uint)  indicies
-  ~ (int)   joint_parent_indicies
-  ~ (mat4)  inverse-bind-matrices
+/* -- how 2 draw a mesh --
+
+	Shader shader = {};
+	load(&shader, "vertex_shader.vert", "fragment_shader.frag");
+
+	Drawable_Mesh mesh = {};
+	load(mesh, "object.mesh");
+	
+	bind(shader);
+	draw(mesh);
 */
 
-void debug_shader(const char* path, GLint vert, GLint frag)
-{
-	GLint logSize = 0;
-	glGetShaderiv(vert, GL_INFO_LOG_LENGTH, &logSize);
-	if (logSize)
-	{
-		char *ErrorLog = Alloc(char, logSize); ZeroMemory(ErrorLog, logSize);
-		glGetShaderInfoLog(vert, logSize, NULL, ErrorLog);
-		out(path << " Vertex Shader ERROR\n" << ErrorLog);
-		Free(ErrorLog);
-	} //else out(path << " Vert: Good");
+struct Shader { GLuint id; };
 
-	logSize = 0;
-	glGetShaderiv(frag, GL_INFO_LOG_LENGTH, &logSize);
-	if (logSize)
+void load(Shader* shader, const char* vert_path, const char* frag_path)
+{
+	char* vert_source = (char*)read_text_file_into_memory(vert_path);
+	char* frag_source = (char*)read_text_file_into_memory(frag_path);
+
+	GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(vert_shader, 1, &vert_source, NULL);
+	glCompileShader(vert_shader);
+
+	GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(frag_shader, 1, &frag_source, NULL);
+	glCompileShader(frag_shader);
+
+	free(vert_source);
+	free(frag_source);
+
 	{
-		char *ErrorLog = Alloc(char, logSize); ZeroMemory(ErrorLog, logSize);
-		glGetShaderInfoLog(frag, logSize, NULL, ErrorLog);
-		out(path << " Fragment Shader ERROR\n" << ErrorLog);
-		Free(ErrorLog);
-	} //else out(path << " Frag: Good");
+		GLint log_size = 0;
+		glGetShaderiv(vert_shader, GL_INFO_LOG_LENGTH, &log_size);
+		if (log_size)
+		{
+			char* error_log = (char*)calloc(log_size, sizeof(char));
+			glGetShaderInfoLog(vert_shader, log_size, NULL, error_log);
+			out("VERTEX SHADER ERROR:\n" << error_log);
+			free(error_log);
+		}
+
+		log_size = 0;
+		glGetShaderiv(frag_shader, GL_INFO_LOG_LENGTH, &log_size);
+		if (log_size)
+		{
+			char* error_log = (char*)calloc(log_size, sizeof(char));
+			glGetShaderInfoLog(frag_shader, log_size, NULL, error_log);
+			out("FRAGMENT SHADER ERROR:\n" << error_log);
+			free(error_log);
+		}
+	}
+
+	shader->id = glCreateProgram();
+	glAttachShader(shader->id, vert_shader);
+	glAttachShader(shader->id, frag_shader);
+	glLinkProgram (shader->id);
+
+	glDeleteShader(vert_shader);
+	glDeleteShader(frag_shader);
+}
+void bind(Shader shader)
+{
+	glUseProgram(shader.id);
+}
+void free(Shader shader)
+{
+	glDeleteShader(shader.id);
 }
 
-struct Model_Data
+// make sure you bind a shader *before* calling these!
+void set_int  (Shader shader, const char* name, int value  )
 {
-	uint num_verts, num_indicies;
+	glUniform1i(glGetUniformLocation(shader.id, name), value);
+}
+void set_float(Shader shader, const char* name, float value)
+{
+	glUniform1f(glGetUniformLocation(shader.id, name), value);
+}
+void set_vec3 (Shader shader, const char* name, vec3 value )
+{
+	glUniform3f(glGetUniformLocation(shader.id, name), value.x, value.y, value.z);
+}
+void set_mat4 (Shader shader, const char* name, mat4 value )
+{
+	glUniformMatrix4fv(glGetUniformLocation(shader.id, name), 1, GL_FALSE, (float*)&value);
+}
+
+struct Mesh_Data
+{
+	uint num_vertices, num_indices;
 
 	vec3* positions;
 	vec3* normals;
-	vec3* indicies;
+	uint* indices;
 };
 
-struct Model_Data_UV
+struct Mesh_Data_UV
 {
-	uint num_verts, num_indicies;
+	uint num_vertices, num_indices;
 
 	vec3* positions;
 	vec3* normals;
 	vec2* textures;
-	uint* indicies;
+	uint* indices;
 };
 
-void load_model(Model_Data* model_data, const char* path)
+void load(Mesh_Data* data, const char* path)
 {
-	FILE* model_file = fopen(path, "rb");
-	if (!model_file) { print("could not open model file : %s\n", path); stop; return; }
+	FILE* mesh_file = fopen(path, "rb");
+	if (!mesh_file) { print("could not open mesh file : %s\n", path); stop; return; }
 
-	fread(&model_data->num_verts, sizeof(uint), 1, model_file);
-	fread(&model_data->num_indicies, sizeof(uint), 1, model_file);
+	fread(&data->num_vertices, sizeof(uint), 1, mesh_file);
+	fread(&data->num_indices , sizeof(uint), 1, mesh_file);
 
-	model_data->positions = Alloc(vec3, model_data->num_verts);
-	model_data->normals   = Alloc(vec3, model_data->num_verts);
-	model_data->indicies  = Alloc(vec3, model_data->num_indicies);
+	data->positions = (vec3*)calloc(data->num_vertices, sizeof(vec3));
+	data->normals   = (vec3*)calloc(data->num_vertices, sizeof(vec3));
+	data->indices   = (uint*)calloc(data->num_indices , sizeof(uint));
 
-	fread(model_data->positions, sizeof(vec3), model_data->num_verts, model_file);
-	fread(model_data->normals  , sizeof(vec3), model_data->num_verts, model_file);
-	fread(model_data->indicies , sizeof(uint), model_data->num_indicies, model_file);
+	fread(data->positions, sizeof(vec3), data->num_vertices, mesh_file);
+	fread(data->normals  , sizeof(vec3), data->num_vertices, mesh_file);
+	fread(data->indices  , sizeof(uint), data->num_indices , mesh_file);
 }
-void load_model(Model_Data_UV* model_data, const char* path)
+void load(Mesh_Data_UV* data, const char* path)
 {
-	FILE* model_file = fopen(path, "rb");
-	if (!model_file) { print("could not open model file: %s\n", path); stop; return; }
+	FILE* mesh_file = fopen(path, "rb");
+	if (!mesh_file) { print("could not open model file: %s\n", path); stop; return; }
 
-	fread(&model_data->num_verts   , sizeof(uint), 1, model_file);
-	fread(&model_data->num_indicies, sizeof(uint), 1, model_file);
+	fread(&data->num_vertices, sizeof(uint), 1, mesh_file);
+	fread(&data->num_indices , sizeof(uint), 1, mesh_file);
 
-	model_data->positions = Alloc(vec3, model_data->num_verts);
-	model_data->normals   = Alloc(vec3, model_data->num_verts);
-	model_data->textures  = Alloc(vec2, model_data->num_verts);
-	model_data->indicies  = Alloc(uint, model_data->num_indicies);
+	data->positions = (vec3*)calloc(data->num_vertices, sizeof(vec3));
+	data->normals   = (vec3*)calloc(data->num_vertices, sizeof(vec3));
+	data->textures  = (vec2*)calloc(data->num_vertices, sizeof(vec2));
+	data->indices   = (uint*)calloc(data->num_indices , sizeof(uint));
 
-	fread(model_data->positions, sizeof(vec3), model_data->num_verts, model_file);
-	fread(model_data->normals  , sizeof(vec3), model_data->num_verts, model_file);
-	fread(model_data->textures , sizeof(vec2), model_data->num_verts, model_file);
-	fread(model_data->indicies , sizeof(uint), model_data->num_indicies, model_file);
+	fread(data->positions, sizeof(vec3), data->num_vertices, mesh_file);
+	fread(data->normals  , sizeof(vec3), data->num_vertices, mesh_file);
+	fread(data->textures , sizeof(vec2), data->num_vertices, mesh_file);
+	fread(data->indices  , sizeof(uint), data->num_indices , mesh_file);
 
-	fclose(model_file);
+	fclose(mesh_file);
 }
 
-struct Render_Data
+struct Drawable_Mesh
 {
 	GLuint VAO, VBO, EBO;
-	GLuint shader_program;
-	GLuint proj_view, view_pos;
-	uint num_indicies;
+	uint num_indices;
 };
 
-struct Render_Data_UV
+struct Drawable_Mesh_UV
 {
 	GLuint VAO, VBO, EBO;
-	GLuint shader_program;
-	GLuint texture_sampler, texture_id;
-	GLuint proj_view, view_pos;
-	uint num_indicies;
+	uint num_indices, texture_id;
 };
 
-void render_data_init(Render_Data* renderdata, uint reserved_mem_size, const char* path, const char* vertsource, const char* fragsource)
+void load(Drawable_Mesh* mesh, const char* path, uint reserved_mem_size = 0)
 {
-	Model_Data model_data;
-	load_model(&model_data, path);
-	renderdata->num_indicies = model_data.num_indicies;
+	Mesh_Data mesh_data;
+	load(&mesh_data, path);
+	mesh->num_indices = mesh_data.num_indices;
 
-	glGenVertexArrays(1, &renderdata->VAO);
-	glBindVertexArray(renderdata->VAO);
+	glGenVertexArrays(1, &(mesh->VAO));
+	glBindVertexArray(mesh->VAO);
 
-	uint vertmemsize = model_data.num_verts * sizeof(vec3);
+	uint vertmemsize = mesh_data.num_vertices * sizeof(vec3);
 	uint offset = reserved_mem_size;
 
-#define RENDER_MEM_SIZE (reserved_mem_size + (model_data.num_verts * sizeof(vec3) * 2)) // '2' for positions & normals
-	glGenBuffers(1, &renderdata->VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, renderdata->VBO);
+#define RENDER_MEM_SIZE (reserved_mem_size + (mesh_data.num_vertices * sizeof(vec3) * 2)) // '2' for positions & normals
+	glGenBuffers(1, &(mesh->VBO));
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->VBO);
 	glBufferData(GL_ARRAY_BUFFER, RENDER_MEM_SIZE, NULL, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, offset, vertmemsize, model_data.positions);
-	glBufferSubData(GL_ARRAY_BUFFER, offset + vertmemsize, vertmemsize, model_data.normals);
+	glBufferSubData(GL_ARRAY_BUFFER, offset, vertmemsize, mesh_data.positions);
+	glBufferSubData(GL_ARRAY_BUFFER, offset + vertmemsize, vertmemsize, mesh_data.normals);
 #undef RENDER_MEM_SIZE
 
-	glGenBuffers(1, &renderdata->EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderdata->EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, model_data.num_indicies * sizeof(uint), model_data.indicies, GL_STATIC_DRAW);
+	glGenBuffers(1, &(mesh->EBO));
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh_data.num_indices * sizeof(uint), mesh_data.indices, GL_STATIC_DRAW);
 
-	Free(model_data.positions);
-	Free(model_data.normals);
-	Free(model_data.indicies);
+	free(mesh_data.positions);
+	free(mesh_data.normals);
+	free(mesh_data.indices);
 
 	offset = reserved_mem_size;
 	{
-		GLint VertAttrib = 0; // position of a vertex
-		glVertexAttribPointer(VertAttrib, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)offset);
-		glEnableVertexAttribArray(VertAttrib);
+		GLint pos_attrib = 0; // local position of a vertex
+		glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)offset);
+		glEnableVertexAttribArray(pos_attrib);
 
-		GLint NormAttrib = 1; offset += vertmemsize; // normal of a vertex
-		glVertexAttribPointer(NormAttrib, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)offset);
-		glEnableVertexAttribArray(NormAttrib);
+		GLint norm_attrib = 1; offset += vertmemsize; // normal of a vertex
+		glVertexAttribPointer(norm_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)offset);
+		glEnableVertexAttribArray(norm_attrib);
 	}
-
-	GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vert_shader, 1, &vertsource, NULL);
-	glCompileShader(vert_shader);
-
-	GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(frag_shader, 1, &fragsource, NULL);
-	glCompileShader(frag_shader);
-
-	debug_shader(path, vert_shader, frag_shader);
-
-	renderdata->shader_program = glCreateProgram();
-	glAttachShader(renderdata->shader_program, vert_shader);
-	glAttachShader(renderdata->shader_program, frag_shader);
-	glBindFragDataLocation(renderdata->shader_program, 0, "FragColor");
-	glLinkProgram(renderdata->shader_program);
-	glUseProgram(renderdata->shader_program);
-
-	renderdata->proj_view = glGetUniformLocation(renderdata->shader_program, "ProjView");
-	renderdata->view_pos = glGetUniformLocation(renderdata->shader_program, "ViewPos");
 }
-void render_data_init(Render_Data_UV* renderdata, uint reserved_mem_size, const char* path, const char* vertsource, const char* fragsource, const char* texture_path, uint tex_unit = 0)
+void update(Drawable_Mesh mesh, uint vb_size, byte* vb_data)
 {
-	Model_Data_UV model_data = {};
-	load_model(&model_data, path);
-	renderdata->num_indicies = model_data.num_indicies;
+	glBindBuffer(GL_ARRAY_BUFFER, mesh.VBO);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, vb_size, vb_data);
+}
+void draw(Drawable_Mesh mesh, uint num_instances)
+{
+	glBindVertexArray(mesh.VAO);
+	glDrawElementsInstanced(GL_TRIANGLES, mesh.num_indices, GL_UNSIGNED_INT, 0, num_instances);
+}
 
-	glGenVertexArrays(1, &renderdata->VAO);
-	glBindVertexArray(renderdata->VAO);
+void load(Drawable_Mesh_UV* mesh, const char* path, const char* texture_path, uint reserved_mem_size)
+{
+	Mesh_Data_UV mesh_data = {};
+	load(&mesh_data, path);
+	mesh->num_indices = mesh_data.num_indices;
 
-	uint vertmemsize = model_data.num_verts * sizeof(vec3);
-	uint texmemsize  = model_data.num_verts * sizeof(vec2);
+	glGenVertexArrays(1, &(mesh->VAO));
+	glBindVertexArray(mesh->VAO);
+
+	uint vertmemsize = mesh_data.num_vertices * sizeof(vec3);
+	uint texmemsize  = mesh_data.num_vertices * sizeof(vec2);
 	uint offset = reserved_mem_size;
 
 #define RENDER_MEM_SIZE (reserved_mem_size + (vertmemsize * 2) + texmemsize)
-	glGenBuffers(1, &renderdata->VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, renderdata->VBO);
+	glGenBuffers(1, &(mesh->VBO));
+	glBindBuffer(GL_ARRAY_BUFFER, mesh->VBO);
 	glBufferData(GL_ARRAY_BUFFER, RENDER_MEM_SIZE, NULL, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, offset, vertmemsize, model_data.positions);
-	glBufferSubData(GL_ARRAY_BUFFER, offset + vertmemsize, vertmemsize, model_data.normals);
-	glBufferSubData(GL_ARRAY_BUFFER, offset + vertmemsize + vertmemsize, texmemsize, model_data.textures);
+	glBufferSubData(GL_ARRAY_BUFFER, offset, vertmemsize, mesh_data.positions);
+	glBufferSubData(GL_ARRAY_BUFFER, offset + vertmemsize, vertmemsize, mesh_data.normals);
+	glBufferSubData(GL_ARRAY_BUFFER, offset + vertmemsize + vertmemsize, texmemsize, mesh_data.textures);
 #undef RENDER_MEM_SIZE
 
-	glGenBuffers(1, &renderdata->EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderdata->EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, model_data.num_indicies * sizeof(uint), model_data.indicies, GL_STATIC_DRAW);
+	glGenBuffers(1, &(mesh->EBO));
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mesh_data.num_indices * sizeof(uint), mesh_data.indices, GL_STATIC_DRAW);
 
-	Free(model_data.positions);
-	Free(model_data.normals);
-	Free(model_data.textures);
-	Free(model_data.indicies);
+	free(mesh_data.positions);
+	free(mesh_data.normals);
+	free(mesh_data.textures);
+	free(mesh_data.indices);
 
 	offset = reserved_mem_size;
 	{
-		GLint vert_attrib = 0; // position
-		glVertexAttribPointer(vert_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)offset);
-		glEnableVertexAttribArray(vert_attrib);
+		GLint pos_attrib = 0; // position
+		glVertexAttribPointer(pos_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)offset);
+		glEnableVertexAttribArray(pos_attrib);
 
 		GLint norm_attrib = 1; offset += vertmemsize; // normal
 		glVertexAttribPointer(norm_attrib, 3, GL_FLOAT, GL_FALSE, sizeof(vec3), (void*)offset);
 		glEnableVertexAttribArray(norm_attrib);
 
-		GLint tex_attrib = 2; offset += vertmemsize; // texture coordinate
+		GLint tex_attrib = 2; offset += vertmemsize; // texture coordinates
 		glVertexAttribPointer(tex_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(vec2), (void*)offset);
 		glEnableVertexAttribArray(tex_attrib);
 	}
-
-	GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vert_shader, 1, &vertsource, NULL);
-	glCompileShader(vert_shader);
-
-	GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(frag_shader, 1, &fragsource, NULL);
-	glCompileShader(frag_shader);
-
-	debug_shader(path, vert_shader, frag_shader);
-
-	renderdata->shader_program = glCreateProgram();
-	glAttachShader(renderdata->shader_program, vert_shader);
-	glAttachShader(renderdata->shader_program, frag_shader);
-	glBindFragDataLocation(renderdata->shader_program, 0, "FragColor");
-	glLinkProgram(renderdata->shader_program);
-	glUseProgram(renderdata->shader_program);
-
-	renderdata->texture_sampler = glGetUniformLocation(renderdata->shader_program, "Texture");
-	renderdata->proj_view       = glGetUniformLocation(renderdata->shader_program, "ProjView");
-	renderdata->view_pos        = glGetUniformLocation(renderdata->shader_program, "ViewPos");
 
 	int width, height, num_channels;
 	byte* image;
@@ -245,11 +258,9 @@ void render_data_init(Render_Data_UV* renderdata, uint reserved_mem_size, const 
 
 	image = stbi_load(texture_path, &width, &height, &num_channels, 0);
 
-	glGenTextures(1, &renderdata->texture_id);
-	glActiveTexture(GL_TEXTURE0 + tex_unit);
-	glBindTexture(GL_TEXTURE_2D, renderdata->texture_id);
+	glGenTextures(1, &(mesh->texture_id));
+	glBindTexture(GL_TEXTURE_2D, mesh->texture_id);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-	glGenerateMipmap(GL_TEXTURE_2D);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -257,122 +268,138 @@ void render_data_init(Render_Data_UV* renderdata, uint reserved_mem_size, const 
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 	stbi_image_free(image);
-
-	glUniform1i(renderdata->texture_sampler, tex_unit);
+}
+void update(Drawable_Mesh_UV mesh, uint vb_size, byte* vb_data)
+{
+	glBindBuffer(GL_ARRAY_BUFFER, mesh.VBO);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, vb_size, vb_data);
+}
+void bind_texture(Drawable_Mesh_UV mesh, uint texture_unit = 0)
+{
+	glActiveTexture(GL_TEXTURE0 + texture_unit);
+	glBindTexture(GL_TEXTURE_2D, mesh.texture_id);
+}
+void draw(Drawable_Mesh_UV mesh, uint num_instances = 1)
+{
+	glBindVertexArray(mesh.VAO);
+	glDrawElementsInstanced(GL_TRIANGLES, mesh.num_indices, GL_UNSIGNED_INT, 0, num_instances);
 }
 
-void render_data_draw(Render_Data data, mat4* projview, vec3 viewpos, uint vb_size = NULL, byte* vb_data = NULL, uint num_instances = 1)
+void mesh_add_attrib_float(GLuint attrib_id, uint stride, uint offset)
 {
-	glBindVertexArray(data.VAO);
-
-	glUseProgram(data.shader_program);
-	glUniformMatrix4fv(data.proj_view, 1, GL_FALSE, (float*)projview);
-	glUniform3f(data.view_pos, viewpos.x, viewpos.y, viewpos.z);
-
-	if (vb_data)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, data.VBO);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, vb_size, vb_data);
-	}
-
-	glDrawElementsInstanced(GL_TRIANGLES, data.num_indicies, GL_UNSIGNED_INT, 0, num_instances);
+	glVertexAttribPointer(attrib_id, 1, GL_FLOAT, GL_FALSE, stride, (void*)offset);
+	glVertexAttribDivisor(attrib_id, 1);
+	glEnableVertexAttribArray(attrib_id);
 }
-void render_data_draw(Render_Data_UV data, mat4* projview, vec3 viewpos, uint vb_size = NULL, byte* vb_data = NULL, uint num_instances = 1)
+void mesh_add_attrib_vec2 (GLuint attrib_id, uint stride, uint offset)
 {
-	glBindVertexArray(data.VAO);
-	glBindTexture(GL_TEXTURE_2D, data.texture_id);
+	glVertexAttribPointer(attrib_id, 2, GL_FLOAT, GL_FALSE, stride, (void*)offset);
+	glVertexAttribDivisor(attrib_id, 1);
+	glEnableVertexAttribArray(attrib_id);
+}
+void mesh_add_attrib_vec3 (GLuint attrib_id, uint stride, uint offset)
+{
+	glVertexAttribPointer(attrib_id, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
+	glVertexAttribDivisor(attrib_id, 1);
+	glEnableVertexAttribArray(attrib_id);
+}
+void mesh_add_attrib_mat3 (GLuint attrib_id, uint stride, uint offset)
+{
+	glVertexAttribPointer(attrib_id, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
+	glVertexAttribDivisor(attrib_id, 1);
+	glEnableVertexAttribArray(attrib_id);
 
-	glUseProgram(data.shader_program);
-	glUniformMatrix4fv(data.proj_view, 1, GL_FALSE, (float*)projview);
-	glUniform3f(data.view_pos, viewpos.x, viewpos.y, viewpos.z);
+	++attrib_id;
+	offset += sizeof(vec3);
+	glVertexAttribPointer(attrib_id, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
+	glVertexAttribDivisor(attrib_id, 1);
+	glEnableVertexAttribArray(attrib_id);
 
-	if (vb_data)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, data.VBO);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, vb_size, vb_data);
-	}
-
-	glDrawElementsInstanced(GL_TRIANGLES, data.num_indicies, GL_UNSIGNED_INT, 0, num_instances);
+	++attrib_id;
+	offset += sizeof(vec3);
+	glVertexAttribPointer(attrib_id, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
+	glVertexAttribDivisor(attrib_id, 1);
+	glEnableVertexAttribArray(attrib_id);
 }
 
-// 2D rendering
+/* -- deferred rendering theory --
 
-struct Render_Data_2D
+	glBindFramebuffer(GL_FRAMEBUFFER, g_buffer.FBO);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	bind(mesh_shader);
+	draw(mesh);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	bind(lighting_shader);
+	g_buffer_draw(g_buffer);
+*/
+
+struct G_Buffer
 {
-	GLuint VAO, VBO, EBO;
-	GLuint shader_program;
+	GLuint FBO; // frame buffer object
+	GLuint positions, normals, albedo; // textures
+	GLuint VAO, VBO, EBO; // for drawing the quad
 };
 
-struct Render_Data_2D_UV
+void init_g_buffer(G_Buffer* buf, Window window)
 {
-	GLuint VAO, VBO, EBO;
-	GLuint shader_program;
-	GLuint texture_sampler, texture_id;
-};
+	glGenFramebuffers(1, &buf->FBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, buf->FBO);
 
-void render_data_init(Render_Data_2D* renderdata, uint reserved_mem_size, const char* vertsource, const char* fragsource)
-{
+	GLuint g_positions, g_normals, g_albedo;
+
+	// position color buffer
+	glGenTextures(1, &g_positions);
+	glBindTexture(GL_TEXTURE_2D, g_positions);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, window.screen_width, window.screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	// normal color buffer
+	glGenTextures(1, &g_normals);
+	glBindTexture(GL_TEXTURE_2D, g_normals);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, window.screen_width, window.screen_height, 0, GL_RGBA, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	// albedo color buffer
+	glGenTextures(1, &g_albedo);
+	glBindTexture(GL_TEXTURE_2D, g_albedo);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, window.screen_width, window.screen_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	// tell OpenGL which color attachments we'll use (of this framebuffer) for rendering 
+	uint attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, g_positions, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, g_normals  , 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, g_albedo   , 0);
+	glDrawBuffers(3, attachments);
+
+	// then also add render buffer object as depth buffer and check for completeness.
+	uint depth_render_buffer;
+	glGenRenderbuffers(1, &depth_render_buffer);
+	glBindRenderbuffer(GL_RENDERBUFFER, depth_render_buffer);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, window.screen_width, window.screen_height);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, depth_render_buffer);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) { out("FRAMEBUFFER ERROR : INCOMPLETE"); stop; }
+
+	buf->positions = g_positions;
+	buf->normals   = g_normals;
+	buf->albedo    = g_albedo;
+
+	// make a screen quad
+
 	float verts[] = {
 		// X     Y
-		-.5f, -.5f, // 0  1-------3
-		-.5f, 0.5f, // 1  |       |
-		0.5f, -.5f, // 2  |       |
-		0.5f, 0.5f  // 3  0-------2
-	};
-
-	uint indicies[] = {
-		0,2,3,
-		3,1,0
-	};
-
-	uint offset = reserved_mem_size;
-
-	glGenVertexArrays(1, &renderdata->VAO);
-	glBindVertexArray(renderdata->VAO);
-
-#define RENDER_MEM_SIZE (reserved_mem_size + sizeof(verts))
-	glGenBuffers(1, &renderdata->VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, renderdata->VBO);
-	glBufferData(GL_ARRAY_BUFFER, RENDER_MEM_SIZE, NULL, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(verts), verts);
-#undef RENDER_MEM_SIZE
-
-	glGenBuffers(1, &renderdata->EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderdata->EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indicies), indicies, GL_STATIC_DRAW);
-
-	offset = reserved_mem_size;
-	{
-		GLint vert_attrib = 0; // position of a vertex
-		glVertexAttribPointer(vert_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(vec2), (void*)offset);
-		glEnableVertexAttribArray(vert_attrib);
-	}
-
-	GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vert_shader, 1, &vertsource, NULL);
-	glCompileShader(vert_shader);
-
-	GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(frag_shader, 1, &fragsource, NULL);
-	glCompileShader(frag_shader);
-
-	debug_shader("2D model: ", vert_shader, frag_shader);
-
-	renderdata->shader_program = glCreateProgram();
-	glAttachShader(renderdata->shader_program, vert_shader);
-	glAttachShader(renderdata->shader_program, frag_shader);
-	glBindFragDataLocation(renderdata->shader_program, 0, "FragColor");
-	glLinkProgram(renderdata->shader_program);
-	glUseProgram(renderdata->shader_program);
-}
-void render_data_init(Render_Data_2D_UV* renderdata, uint reserved_mem_size, const char* vertsource, const char* fragsource, const char* texture_path, uint tex_unit = 0)
-{
-	float verts[] = {
-		// X     Y
-		-.5f, -.5f, // 0  1-------3
-		-.5f,  .5f, // 1  |       |
-		 .5f, -.5f, // 2  |       |
-		 .5f,  .5f  // 3  0-------2
+		-1.f, -1.f, // 0  1-------3
+		-1.f,  1.f, // 1  |       |
+		 1.f, -1.f, // 2  |       |
+		 1.f,  1.f  // 3  0-------2
 	};
 
 	float tex_coords[]{
@@ -388,141 +415,141 @@ void render_data_init(Render_Data_2D_UV* renderdata, uint reserved_mem_size, con
 		3,1,0
 	};
 
-	uint offset = reserved_mem_size;
+	glGenVertexArrays(1, &buf->VAO);
+	glBindVertexArray(buf->VAO);
 
-	glGenVertexArrays(1, &renderdata->VAO);
-	glBindVertexArray(renderdata->VAO);
+	glGenBuffers(1, &buf->VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, buf->VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(verts) + sizeof(tex_coords), NULL, GL_STATIC_DRAW);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(verts), verts);
+	glBufferSubData(GL_ARRAY_BUFFER, sizeof(verts), sizeof(tex_coords), tex_coords);
 
-#define RENDER_MEM_SIZE (reserved_mem_size + sizeof(verts) + sizeof(tex_coords))
-	glGenBuffers(1, &renderdata->VBO);
-	glBindBuffer(GL_ARRAY_BUFFER, renderdata->VBO);
-	glBufferData(GL_ARRAY_BUFFER, RENDER_MEM_SIZE, NULL, GL_STATIC_DRAW);
-	glBufferSubData(GL_ARRAY_BUFFER, offset, sizeof(verts), verts);
-	glBufferSubData(GL_ARRAY_BUFFER, offset + sizeof(verts), sizeof(tex_coords), tex_coords);
-#undef RENDER_MEM_SIZE
-
-	glGenBuffers(1, &renderdata->EBO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderdata->EBO);
+	glGenBuffers(1, &buf->EBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf->EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indicies), indicies, GL_STATIC_DRAW);
 
-	offset = reserved_mem_size;
-	{
-		GLint vert_attrib = 0; // vertex position
-		glVertexAttribPointer(vert_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(vec2), (void*)offset);
-		glEnableVertexAttribArray(vert_attrib);
+	uint offset = 0;
+	GLint vert_attrib = 0; // vertex position
+	glVertexAttribPointer(vert_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(vec2), (void*)offset);
+	glEnableVertexAttribArray(vert_attrib);
 
-		offset += sizeof(verts);
-		GLint tex_attrib = 1; // texture coordinates
-		glVertexAttribPointer(tex_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(vec2), (void*)offset);
-		glEnableVertexAttribArray(tex_attrib);
-	}
+	offset += sizeof(verts);
+	GLint tex_attrib = 1; // texture coordinates
+	glVertexAttribPointer(tex_attrib, 2, GL_FLOAT, GL_FALSE, sizeof(vec2), (void*)offset);
+	glEnableVertexAttribArray(tex_attrib);
+}
+void draw_g_buffer(G_Buffer g_buffer)
+{
+	glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, g_buffer.positions);
+	glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, g_buffer.normals);
+	glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, g_buffer.albedo);
 
-	GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vert_shader, 1, &vertsource, NULL);
-	glCompileShader(vert_shader);
-
-	GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(frag_shader, 1, &fragsource, NULL);
-	glCompileShader(frag_shader);
-
-	debug_shader("2D model: ", vert_shader, frag_shader);
-
-	renderdata->shader_program = glCreateProgram();
-	glAttachShader(renderdata->shader_program, vert_shader);
-	glAttachShader(renderdata->shader_program, frag_shader);
-	glBindFragDataLocation(renderdata->shader_program, 0, "FragColor");
-	glLinkProgram(renderdata->shader_program);
-	glUseProgram(renderdata->shader_program);
-
-	renderdata->texture_sampler = glGetUniformLocation(renderdata->shader_program, "Texture");
-
-	int width, height, num_channels;
-	byte* image;
-
-	stbi_set_flip_vertically_on_load(true);
-
-	image = stbi_load(texture_path, &width, &height, &num_channels, 0);
-
-	glGenTextures(1, &renderdata->texture_id);
-	glActiveTexture(GL_TEXTURE0 + tex_unit);
-	glBindTexture(GL_TEXTURE_2D, renderdata->texture_id);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, image);
-	glGenerateMipmap(GL_TEXTURE_2D);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-	stbi_image_free(image);
-
-	glUniform1i(renderdata->texture_sampler, tex_unit);
+	glBindVertexArray(g_buffer.VAO);
+	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, 1);
 }
 
-void render_data_draw(Render_Data_2D data, uint vb_size = NULL, byte* vb_data = NULL, uint num_instances = 1)
+/* -- deferred rendering cheat sheet --
+
+	Position texture = 0
+	Normal   texture = 1
+	Albedo   texture = 2
+
+	GL_FRAMEBUFFER = 0 for default framebuffer
+*/
+
+struct Point_Light
 {
-	glBindVertexArray(data.VAO);
+	vec3 position;
+	vec3 color;
+	float linear, quadratic;
+};
 
-	glUseProgram(data.shader_program);
+struct Spot_Light
+{
+	vec3 position;
+	vec3 direction;
+	float inner_cuttof, outer_cuttof;
+	vec3 color;
+	float linear, quadratic;
+};
 
-	if (vb_data)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, data.VBO);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, vb_size, vb_data);
-	}
+struct Directional_Light
+{
+	vec3 direction;
+	vec3 color;
+	float linear, quadratic;
+};
 
-	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, num_instances);
+struct Point_Light_Drawable
+{
+	Shader shader;
+	Drawable_Mesh mesh;
+};
+
+struct Spot_Light_Drawable
+{
+	Shader shader;
+	Drawable_Mesh mesh;
+};
+
+struct Directional_Light_Drawable
+{
+	Shader shader;
+	Drawable_Mesh mesh;
+};
+
+struct Light_Renderer
+{
+	uint num_point_lights, num_spot_lights, num_directional_lights;
+	Point_Light_Drawable* point_lights;
+	Spot_Light_Drawable* spot_lights;
+	Directional_Light_Drawable* directional_lights;
+};
+
+void init(Light_Renderer* renderer)
+{
+
 }
-void render_data_draw(Render_Data_2D_UV data, uint vb_size = NULL, byte* vb_data = NULL, uint num_instances = 1)
+
+Shader make_lighting_shader()
 {
-	glBindVertexArray(data.VAO);
-	glBindTexture(GL_TEXTURE_2D, data.texture_id);
+	Shader lighting_shader = {};
+	load(&lighting_shader, "assets/shaders/lighting.vert", "assets/shaders/lighting.frag");
+	bind(lighting_shader);
 
-	glUseProgram(data.shader_program);
+	set_int(lighting_shader, "positions", 0);
+	set_int(lighting_shader, "normals"  , 1);
+	set_int(lighting_shader, "albedo"   , 2);
+	
+	// Directional Lighting
+	vec3 light_direction = vec3(-1, -1, -1);
+	set_vec3(lighting_shader, "dir_light.direction", light_direction);
+	set_vec3(lighting_shader, "dir_light.direction", light_direction);
+	set_vec3(lighting_shader, "dir_light.ambient"  , vec3(0.2f, 0.2f, 0.2f));
+	set_vec3(lighting_shader, "dir_light.diffuse"  , vec3(0.5f, 0.5f, 0.5f));
+	set_vec3(lighting_shader, "dir_light.specular" , vec3(1.0f, 1.0f, 1.0f));
+	
+	// Point Lights
+	vec3 light_position = vec3(8, 65, 8);
+	set_vec3 (lighting_shader, "pt_light.position" , light_position);
+	set_vec3 (lighting_shader, "pt_light.ambient"  , vec3(0.2f, 0.2f, 0.2f));
+	set_vec3 (lighting_shader, "pt_light.diffuse"  , vec3(0.5f, 0.5f, 0.5f));
+	set_vec3 (lighting_shader, "pt_light.specular" , vec3(1.0f, 1.0f, 1.0f));
+	set_float(lighting_shader, "pt_light.linear"   , 0.09f);
+	set_float(lighting_shader, "pt_light.quadratic", 0.032f);
+	
+	// Spot Lights
+	float spt_light_cutoff_inner = cos(ToRadians(12.5f));
+	float spt_light_cutoff_outer = cos(ToRadians(17.5f));
+	set_vec3 (lighting_shader, "spt_light.position"    , vec3(2, 1.5, 2));
+	set_vec3 (lighting_shader, "spt_light.direction"   , vec3(2, 1.5, 2));
+	set_float(lighting_shader, "spt_light.inner_cutoff", spt_light_cutoff_inner);
+	set_float(lighting_shader, "spt_light.outer_cutoff", spt_light_cutoff_outer);
+	set_vec3 (lighting_shader, "spt_light.ambient"     , vec3(.001, 0, 0));
+	set_vec3 (lighting_shader, "spt_light.diffuse"     , vec3(1, 0, 0));
+	set_vec3 (lighting_shader, "spt_light.specular"    , vec3(1, 0, 0));
+	set_float(lighting_shader, "spt_light.linear"      , 0.01f);
+	set_float(lighting_shader, "spt_light.quadratic"   , 0.032f);
 
-	if (vb_data)
-	{
-		glBindBuffer(GL_ARRAY_BUFFER, data.VBO);
-		glBufferSubData(GL_ARRAY_BUFFER, 0, vb_size, vb_data);
-	}
-
-	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, num_instances);
-}
-
-// utilities
-
-void gl_add_attrib_float(uint id, uint stride, uint offset)
-{
-	glVertexAttribPointer(id, 1, GL_FLOAT, GL_FALSE, stride, (void*)offset);
-	glVertexAttribDivisor(id, 1);
-	glEnableVertexAttribArray(id);
-}
-void gl_add_attrib_vec2(uint id, uint stride, uint offset)
-{
-	glVertexAttribPointer(id, 2, GL_FLOAT, GL_FALSE, stride, (void*)offset);
-	glVertexAttribDivisor(id, 1);
-	glEnableVertexAttribArray(id);
-}
-void gl_add_attrib_vec3(uint id, uint stride, uint offset)
-{
-	glVertexAttribPointer(id, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
-	glVertexAttribDivisor(id, 1);
-	glEnableVertexAttribArray(id);
-}
-void gl_add_attrib_mat3(uint id, uint stride, uint offset)
-{
-	glVertexAttribPointer(id, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
-	glVertexAttribDivisor(id, 1);
-	glEnableVertexAttribArray(id);
-
-	++id;
-	offset += sizeof(vec3);
-	glVertexAttribPointer(id, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
-	glVertexAttribDivisor(id, 1);
-	glEnableVertexAttribArray(id);
-
-	++id;
-	offset += sizeof(vec3);
-	glVertexAttribPointer(id, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
-	glVertexAttribDivisor(id, 1);
-	glEnableVertexAttribArray(id);
+	return lighting_shader;
 }

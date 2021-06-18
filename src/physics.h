@@ -1,5 +1,5 @@
 #pragma once
-#include "camera.h"
+#include "renderer.h"
 
 #define GRAVITY -9.81f
 
@@ -22,7 +22,7 @@ struct Cyllinder_Collider
 	float Radius;
 };
 
-/*------------------------------- Initializers -------------------------------*/
+// --- Initializers --- //
 
 /* Defined by pos of bottom left + dimentions */
 void cube_collider_init(Cube_Collider* cube, vec3 position, vec3 dimentions)
@@ -46,7 +46,7 @@ void cyllinder_colider_init(Cyllinder_Collider* cyllinder, vec3 position, float 
 	cyllinder->Radius = radius;
 }
 
-/*------------------------------- Point In Shape -------------------------------*/
+// --- Point In Shape --- //
 
 bool point_in_cube(vec3 point, Cube_Collider cube)
 {
@@ -72,7 +72,7 @@ bool point_in_cyllinder(vec3 point, Cyllinder_Collider cyllinder)
 	return true; //PointInCircle...
 }
 
-/*------------------------------- Line in Shape -------------------------------*/
+// --- Line in Shape --- //
 
 //this algorithm can be sped up significantly
 bool line_in_cube(vec3 start, vec3 dir, Cube_Collider cube)
@@ -100,7 +100,7 @@ bool line_in_sphere(vec3 start, vec3 dir, Sphere_Collider sphere)
 	return false;
 }
 
-/*------------------------------- Shape Intersections -------------------------------*/
+// --- Shape Intersections --- //
 
 bool sphere_sphere_intersect(Sphere_Collider sphere_1, Sphere_Collider sphere_2)
 {

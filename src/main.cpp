@@ -17,10 +17,6 @@ int main()
 	camera.height = 5;
 
 	Level* level = Alloc(Level, 1);
-	level->path_nodes[0] = { vec3(0,1,8)   };
-	level->path_nodes[1] = { vec3(15,1,8)  };
-	level->path_nodes[2] = { vec3(15,1,15) };
-	level->path_nodes[3] = { vec3(-1,0,0)  };
 
 	Tile_Renderer*   tile_renderer   = Alloc(Tile_Renderer  , 1);
 	Enemy_Renderer*  enemy_renderer  = Alloc(Enemy_Renderer , 1);
@@ -58,13 +54,6 @@ int main()
 
 		camera_update(&camera);
 
-		if (keys.F.is_pressed) // flashlight
-		{
-			bind(lighting_shader);
-			set_vec3(lighting_shader, "spt_light.position" , camera.position);
-			set_vec3(lighting_shader, "spt_light.direction", camera.front);
-		}
-
 		// game state updates //
 		update_level(level, frame_time);
 
@@ -91,14 +80,6 @@ int main()
 				int i = TILE_INDEX((int)intersect_point.x, (int)intersect_point.z);
 	
 			}
-		}
-
-		static float enemy_spawn_timer = 4;
-		enemy_spawn_timer -= frame_time;
-		if (enemy_spawn_timer < 0)
-		{
-			spawn_enemy(level->enemies, vec3(0, 1, 0));
-			enemy_spawn_timer = 4;
 		}
 
 		// Geometry pass

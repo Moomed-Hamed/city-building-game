@@ -69,7 +69,7 @@ struct Mouse
 	double raw_x, raw_y;   // pixel coordinates
 	double norm_x, norm_y; // normalized screen coordinates
 	double dx, dy;  // pos change since last frame in pixels
-	// TODO : add norm_dx & norm_dy?
+	double norm_dx, norm_dy;
 
 	Button right_button, left_button;
 };
@@ -92,6 +92,9 @@ void update_mouse(Mouse* mouse, Window window)
 	mouse->norm_y = 1 - mouse->norm_y;
 	mouse->norm_x = (mouse->norm_x * 2) - 1;
 	mouse->norm_y = (mouse->norm_y * 2) - 1;
+
+	mouse->norm_dx = mouse->norm_x - prev_mouse.norm_x;
+	mouse->norm_dy = mouse->norm_y - prev_mouse.norm_y;
 
 	bool key_down = (glfwGetMouseButton(window.instance, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS);
 

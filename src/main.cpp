@@ -18,11 +18,11 @@ int main()
 
 	Level* level = Alloc(Level, 1);
 
-	Tile_Renderer*   tile_renderer   = Alloc(Tile_Renderer  , 1);
-	Enemy_Renderer*  enemy_renderer  = Alloc(Enemy_Renderer , 1);
+	Tile_Renderer* tile_renderer = Alloc(Tile_Renderer  , 1);
+	Building_Renderer* building_renderer = Alloc(Building_Renderer , 1);
 
 	init(tile_renderer);
-	init(enemy_renderer);
+	init(building_renderer);
 
 	G_Buffer g_buffer = {};
 	init_g_buffer(&g_buffer, window);
@@ -33,6 +33,8 @@ int main()
 	float frame_time = 1.f / 60;
 	int64 target_frame_milliseconds = frame_time * 1000.f;
 	Timestamp frame_start = get_timestamp(), frame_end;
+
+	spawn_building(level->buildings, vec3(1, 1, 1));
 
 	while (1)
 	{
@@ -59,7 +61,7 @@ int main()
 
 		// rendering updates //
 		update_renderer(tile_renderer  , level->tiles);
-		update_renderer(enemy_renderer , level->enemies);
+		update_renderer(building_renderer , level->buildings);
 
 		mat4 proj_view = proj * glm::lookAt(camera.position, camera.position + camera.front, camera.up);
 
@@ -78,7 +80,10 @@ int main()
 			if (intersect_point.x > 0 && intersect_point.x < 16 && intersect_point.z > 0 && intersect_point.z < 16)
 			{
 				int i = TILE_INDEX((int)intersect_point.x, (int)intersect_point.z);
-	
+				if (keys.G.is_pressed && !keys.G.was_pressed)
+				{
+					spawn_building(level->buildings, vec3((int)intersect_point.x, 1, (int)intersect_point.z));
+				}
 			}
 		}
 
@@ -91,9 +96,9 @@ int main()
 		bind_texture(tile_renderer->tile_mesh, 3);
 		draw(tile_renderer->tile_mesh, tile_renderer->num_tiles);
 
-		bind(enemy_renderer->shader);
-		set_mat4(enemy_renderer->shader, "proj_view", proj_view);
-		draw(enemy_renderer->mesh, enemy_renderer->num_enemies);
+		bind(building_renderer->shader);
+		set_mat4(building_renderer->shader, "proj_view", proj_view);
+		draw(building_renderer->mesh, building_renderer->num_buildings);
 
 		// Lighting pass
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);

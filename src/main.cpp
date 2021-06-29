@@ -23,19 +23,15 @@ int main()
 	level->path_nodes[3] = { vec3(-.5, 0, 0.5)   };
 
 	Tile_Renderer*   tile_renderer   = Alloc(Tile_Renderer  , 1);
-	Enemy_Renderer*  enemy_renderer  = Alloc(Enemy_Renderer , 1);
-	Turret_Renderer* turret_renderer = Alloc(Turret_Renderer, 1);
 
 	init(tile_renderer);
-	init(enemy_renderer);
-	init(turret_renderer);
 
 	G_Buffer g_buffer = {};
 	init_g_buffer(&g_buffer, window);
 	Shader lighting_shader = make_lighting_shader();
 	mat4 proj = glm::perspective(FOV, (float)window.screen_width / window.screen_height, 0.1f, DRAW_DISTANCE);
 
-	spawn_turret(level->turrets, vec3(1, 0, 0));
+	test_gen(level);
 
 	// frame timer
 	float frame_time = 1.f / 60;
@@ -69,63 +65,43 @@ int main()
 			set_vec3(lighting_shader, "spt_light.direction", camera.front);
 		}
 
+		if (keys.X.is_pressed && !keys.X.was_pressed)
+		{
+			static float flat = 0;
+			flat += .2;
+			out(flat <<  '=' << perlin(flat, flat) * 5);
+			test_gen(level, 0, flat);
+		}
+
+		if (keys.R.is_pressed && !keys.R.was_pressed)
+		{
+			static uint offset = 0;
+			offset += 1;
+			test_gen(level, offset, 6);
+		}
+
 		// game state updates //
 		update_level(level, frame_time);
 
 		// rendering updates //
-		update_renderer(tile_renderer  , level->tiles);
-		update_renderer(enemy_renderer , level->enemies);
-		update_renderer(turret_renderer, level->turrets);
+		update_renderer(tile_renderer, level->tiles, frame_time);
 
 		mat4 proj_view = proj * glm::lookAt(camera.position, camera.position + camera.front, camera.up);
-
-		// calculating which tile is selected by the mouse
-		vec3 intersect_point = {};
-		{
-			vec3 mouse_dir = get_mouse_world_dir(mouse, proj_view);
-			vec3 p0 = camera.position + vec3(mouse.norm_x, mouse.norm_y, 0);
-			float lambda = (1 - p0.y) / mouse_dir.y;
-
-			float x = p0.x + (lambda * mouse_dir.x);
-			float z = p0.z + (lambda * mouse_dir.z);
-
-			intersect_point = vec3(x, 1, z);
-
-			if (intersect_point.x > 0 && intersect_point.x < 16 && intersect_point.z > 0 && intersect_point.z < 16)
-			{
-				int i = TILE_INDEX((int)intersect_point.x, (int)intersect_point.z);
-				if (keys.G.is_pressed && !keys.G.was_pressed)
-				{
-					spawn_turret(level->turrets, vec3((int)intersect_point.x, 1, (int)intersect_point.z));
-				}
-			}
-		}
-
-		//level->bullets[0] = { 1, intersect_point, vec3(1,0,1), 0, 10000 };
 
 		// Geometry pass
 		glBindFramebuffer(GL_FRAMEBUFFER, g_buffer.FBO);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		bind(tile_renderer->tile_shader);
-		set_mat4(tile_renderer->tile_shader, "proj_view", proj_view);
-		bind_texture(tile_renderer->tile_mesh, 3);
-		draw(tile_renderer->tile_mesh, tile_renderer->num_tiles);
+		bind(tile_renderer->land_shader);
+		set_mat4(tile_renderer->land_shader, "proj_view", proj_view);
+		bind_texture(tile_renderer->land_mesh, 3);
+		draw(tile_renderer->land_mesh, tile_renderer->num_land_tiles);
 
-		bind(enemy_renderer->shader);
-		set_mat4(enemy_renderer->shader, "proj_view", proj_view);
-		bind_texture(enemy_renderer->mesh, 4);
-		draw(enemy_renderer->mesh, enemy_renderer->num_enemies);
-
-		bind(turret_renderer->cannon_shader);
-		set_mat4(turret_renderer->cannon_shader, "proj_view", proj_view);
-		bind_texture(turret_renderer->cannon_mesh, 4);
-		draw(turret_renderer->cannon_mesh, turret_renderer->num_turrets);
-
-		bind(turret_renderer->platform_shader);
-		set_mat4(turret_renderer->platform_shader, "proj_view", proj_view);
-		bind_texture(turret_renderer->platform_mesh, 4);
-		draw(turret_renderer->platform_mesh, turret_renderer->num_turrets);
+		bind(tile_renderer->fluid_shader);
+		set_mat4(tile_renderer->fluid_shader, "proj_view", proj_view);
+		set_float(tile_renderer->fluid_shader, "timer", tile_renderer->fluid_timer);
+		bind_texture(tile_renderer->fluid_mesh, 3);
+		draw(tile_renderer->fluid_mesh, tile_renderer->num_fluid_tiles);
 
 		// Lighting pass
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);

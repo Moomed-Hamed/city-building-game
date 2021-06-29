@@ -22,7 +22,7 @@ void camera_pan(Camera* camera, float dx, float dy, float dtime)
 	static float horizontal_amount = 0;
 	static float vertical_amount   = 0;
 
-	horizontal_amount -= dx * dtime;
+	horizontal_amount += dx * dtime;
 	vertical_amount   += dy * dtime;
 
 	camera->horizontal_offset = camera->right * horizontal_amount;

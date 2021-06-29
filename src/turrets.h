@@ -1,4 +1,4 @@
-#include "enemies.h"
+#include "tiles.h"
 
 #define MAX_TURRETS 256
 
@@ -67,21 +67,21 @@ struct Turret_Renderer
 
 void init(Turret_Renderer* renderer)
 {
-	load(&renderer->cannon_mesh, "assets/meshes/turret.mesh_uv", "assets/textures/pallete.bmp", sizeof(renderer->cannons));
+	load(&renderer->cannon_mesh, "assets/meshes/turret.mesh_uv", "assets/textures/palette.bmp", sizeof(renderer->cannons));
 	mesh_add_attrib_vec3(3, sizeof(Turret_Cannon_Drawable), 0); // world pos
 	mesh_add_attrib_mat3(4, sizeof(Turret_Cannon_Drawable), sizeof(vec3)); // rotation
 
-	load(&(renderer->cannon_shader), "assets/shaders/bullet.vert", "assets/shaders/tile.frag");
+	load(&(renderer->cannon_shader), "assets/shaders/mesh_uv_rot.vert", "assets/shaders/mesh_uv.frag");
 	bind(renderer->cannon_shader);
 	set_int(renderer->cannon_shader, "positions", 0);
 	set_int(renderer->cannon_shader, "normals"  , 1);
 	set_int(renderer->cannon_shader, "albedo"   , 2);
 	set_int(renderer->cannon_shader, "texture_sampler", 4);
 
-	load(&renderer->platform_mesh, "assets/meshes/turret_platform.mesh_uv", "assets/textures/pallete.bmp", sizeof(renderer->cannons));
+	load(&renderer->platform_mesh, "assets/meshes/turret_platform.mesh_uv", "assets/textures/palette.bmp", sizeof(renderer->cannons));
 	mesh_add_attrib_vec3(3, sizeof(Turret_Platform_Drawable), 0); // world pos
 
-	load(&(renderer->platform_shader), "assets/shaders/enemy.vert", "assets/shaders/tile.frag");
+	load(&(renderer->platform_shader), "assets/shaders/mesh_uv.vert", "assets/shaders/mesh_uv.frag");
 	bind(renderer->platform_shader);
 	set_int(renderer->platform_shader, "positions", 0);
 	set_int(renderer->platform_shader, "normals"  , 1);

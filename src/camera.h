@@ -1,4 +1,4 @@
-#include "physics.h"
+#include "renderer.h"
 
 #define DIR_FORWARD	0
 #define DIR_BACKWARD	1
@@ -20,9 +20,9 @@ struct Camera
 void camera_pan(Camera* camera, float dx, float dy, float dtime)
 {
 	static float horizontal_amount = 0;
-	static float vertical_amount = 0;
+	static float vertical_amount   = 0;
 
-	horizontal_amount += dx * dtime;
+	horizontal_amount -= dx * dtime;
 	vertical_amount   += dy * dtime;
 
 	camera->horizontal_offset = camera->right * horizontal_amount;
@@ -40,19 +40,12 @@ void camera_rotate(Camera* camera, float dx, float dy, float dtime)
 	if (camera->height > 10  ) camera->height = 10;
 }
 
-void camera_update_dir(Camera* camera, vec3 front)
-{
-	camera->front = normalize(front);
-	camera->right = normalize(cross(camera->front, vec3(0, 1, 0)));
-	camera->up    = normalize(cross(camera->right, camera->front));
-}
-
 void camera_update_dir(Camera* camera, float dx, float dy, float sensitivity = 0.003)
 {
 	camera->yaw   += (dx * sensitivity) / TWOPI;
 	camera->pitch += (dy * sensitivity) / TWOPI;
 
-	if (camera->pitch >  PI / 2.01) camera->pitch =  PI / 2.01;
+	if (camera->pitch >  PI / 2.01) camera->pitch = PI / 2.01;
 	if (camera->pitch < -PI / 2.01) camera->pitch = -PI / 2.01;
 
 	camera->front.y = sin(camera->pitch);
@@ -62,6 +55,13 @@ void camera_update_dir(Camera* camera, float dx, float dy, float sensitivity = 0
 	camera->front = normalize(camera->front);
 	camera->right = normalize(cross(camera->front, vec3(0, 1, 0)));
 	camera->up    = normalize(cross(camera->right, camera->front));
+}
+
+void camera_update_dir(Camera* camera, vec3 front)
+{
+	camera->front = normalize(front);
+	camera->right = normalize(cross(camera->front, vec3(0, 1, 0)));
+	camera->up = normalize(cross(camera->right, camera->front));
 }
 
 void camera_update_pos(Camera* camera, int direction, float distance)
@@ -76,7 +76,8 @@ void camera_update_pos(Camera* camera, int direction, float distance)
 
 void camera_update(Camera* camera)
 {
-	camera->position = vec3(12 * sin(camera->theta) + 8, camera->height, 12 * cos(camera->theta) + 8);
+	float radius = 12;
+	camera->position = vec3(radius * sin(camera->theta) + 8, camera->height, radius * cos(camera->theta) + 8);
 	camera->position += camera->vertical_offset + camera->horizontal_offset;
 	camera_update_dir(camera, (vec3(8, 1, 8) + camera->vertical_offset + camera->horizontal_offset) - camera->position);
 }

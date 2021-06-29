@@ -1,12 +1,13 @@
-#include "buildings.h"
+#include "turrets.h"
 
 struct Level
 {
 	TileID tiles[NUM_MAP_TILES];
-	Building buildings[MAX_BUILDINGS];
+	Turret turrets[MAX_TURRETS];
+	Enemy enemies[MAX_ENEMIES];
+	vec3 path_nodes[16]; // path enemies travel on
 };
 
 void update_level(Level* level, float dtime)
 {
-	
 }

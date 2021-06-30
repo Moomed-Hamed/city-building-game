@@ -23,8 +23,8 @@ void test_gen(Level* level, uint offset = 0, float flatness = 16)
 	for (uint x = 0; x < MAP_X; ++x) {
 	for (uint z = 0; z < MAP_Z; ++z) {
 
-		float noise_value = perlin(n * (x + offset), n * (z + offset));
-		uint height = noise_value * 5;
+		float noise_value = perlin(n * (x + offset), n * (z + offset)) * 5;
+		uint height = noise_value;
 		//out(height);
 		
 		for (uint y = 0; y < MAP_Y; ++y)
@@ -38,17 +38,28 @@ void test_gen(Level* level, uint offset = 0, float flatness = 16)
 				height = 5;
 			}
 
-			switch (height)
+			if (height == 1)
 			{
-			case 0: blocks[index] = TILE_WATER; break;
-			case 1: blocks[index] = TILE_SAND; break;
-			case 2: blocks[index] = TILE_DIRT; break;
-			case 3: blocks[index] = TILE_GRASS; break;
-			case 4: blocks[index] = TILE_GRASS; break;
-			case 5: blocks[index] = TILE_GRASS; break;
+				blocks[index] = TILE_WATER;
+			}
+			else if (height == 2)
+			{
+				blocks[index] = TILE_SAND;
+			}
+			else
+			{
+				blocks[index] = TILE_GRASS;
 			}
 
-			blocks[index] = height;
+			//switch (height)
+			//{
+			//case 0: blocks[index] = TILE_WATER; break;
+			//case 1: blocks[index] = TILE_SAND; break;
+			//case 2: blocks[index] = TILE_DIRT; break;
+			//case 3: blocks[index] = TILE_GRASS; break;
+			//case 4: blocks[index] = TILE_GRASS; break;
+			//case 5: blocks[index] = TILE_GRASS; break;
+			//}
 		}
 	} }
 }

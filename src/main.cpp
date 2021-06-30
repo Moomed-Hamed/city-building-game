@@ -77,7 +77,7 @@ int main()
 		{
 			static uint offset = 0;
 			offset += 1;
-			test_gen(level, offset, 6);
+			test_gen(level, offset, 4);
 		}
 
 		// game state updates //

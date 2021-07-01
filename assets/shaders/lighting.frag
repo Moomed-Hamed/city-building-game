@@ -68,7 +68,7 @@ void main()
 	vec3 ambient  = dir_light.ambient  * albedo;
 	vec3 diffuse  = dir_light.diffuse  * diff * albedo;
 	vec3 specular = dir_light.specular * spec * albedo;
-	vec3 final_color = .33 * (ambient + diffuse + specular);
+	vec3 final_color = .66 * (ambient + diffuse + specular); // This should be .33 probably
 
 	// Point Lights
 	light_dir   = normalize(pt_light.position - position);

@@ -17,7 +17,7 @@ int main()
 	camera.height = 3;
 
 	Level* level = Alloc(Level, 1);
-	level->path_nodes[0] = { vec3(0, 1, 8.5)   };
+	level->path_nodes[0] = { vec3(0, 1, 8.5)     };
 	level->path_nodes[1] = { vec3(15.5, 1, 8.5)  };
 	level->path_nodes[2] = { vec3(15.5, 1, 15.5) };
 	level->path_nodes[3] = { vec3(-.5, 0, 0.5)   };
@@ -32,6 +32,11 @@ int main()
 	mat4 proj = glm::perspective(FOV, (float)window.screen_width / window.screen_height, 0.1f, DRAW_DISTANCE);
 
 	test_gen(level);
+
+	Enemy* enemies = Alloc(Enemy, MAX_ENEMIES);
+	Enemy_Renderer* enemy_renderer = Alloc(Enemy_Renderer, 1);
+	init(enemy_renderer);
+	spawn_enemy(enemies, vec3(1, .2, 0.5));
 
 	// frame timer
 	float frame_time = 1.f / 60;
@@ -85,6 +90,7 @@ int main()
 
 		// rendering updates //
 		update_renderer(tile_renderer, level->tiles, frame_time);
+		update_renderer(enemy_renderer, enemies);
 
 		mat4 proj_view = proj * glm::lookAt(camera.position, camera.position + camera.front, camera.up);
 
@@ -102,6 +108,11 @@ int main()
 		set_float(tile_renderer->fluid_shader, "timer", tile_renderer->fluid_timer);
 		bind_texture(tile_renderer->fluid_mesh, 3);
 		draw(tile_renderer->fluid_mesh, tile_renderer->num_fluid_tiles);
+
+		bind(enemy_renderer->shader);
+		set_mat4(enemy_renderer->shader, "proj_view", proj_view);
+		bind_texture(enemy_renderer->mesh, 5);
+		draw(enemy_renderer->mesh, enemy_renderer->num_enemies);
 
 		// Lighting pass
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);

@@ -46,7 +46,7 @@ void init(Tile_Renderer* renderer)
 
 	load(&renderer->land_mesh, "assets/meshes/hex_tile.mesh_uv", "assets/textures/terrain.bmp", sizeof(renderer->land));
 	mesh_add_attrib_vec3(3, sizeof(Land_Drawable), 0); // world pos
-	mesh_add_attrib_float(4, sizeof(Land_Drawable), sizeof(vec3)); // world pos
+	mesh_add_attrib_float(4, sizeof(Land_Drawable), sizeof(vec3)); // texture offsets
 
 	load(&(renderer->land_shader), "assets/shaders/hex_tile.vert", "assets/shaders/mesh_uv.frag");
 	bind(renderer->land_shader);
@@ -85,7 +85,7 @@ void update_renderer(Tile_Renderer* renderer, TileID* tiles, float dtime)
 			
 			switch (block)
 			{
-			case TILE_GRASS: land_mem->position = vec3(x, .2 * 1, z); break;
+			case TILE_GRASS: land_mem->position = vec3(x, .2 * 2, z); break;
 			case TILE_SAND : land_mem->position = vec3(x, .2 * 1, z); break;
 			default: land_mem->position = vec3(x, .2 * 3, z); break;
 			}

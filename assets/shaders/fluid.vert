@@ -19,7 +19,7 @@ out VS_OUT vs_out;
 void main()
 {
 	vs_out.normal = normal;
-	vs_out.frag_pos = position + world_position;
+	vs_out.frag_pos = (position * 1.5) + world_position;
 	vs_out.tex_coord = tex_coord;
 
 	float x1 = (position.x + 1) + world_position.x;

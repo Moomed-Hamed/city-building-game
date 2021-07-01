@@ -36,7 +36,7 @@ int main()
 	Enemy* enemies = Alloc(Enemy, MAX_ENEMIES);
 	Enemy_Renderer* enemy_renderer = Alloc(Enemy_Renderer, 1);
 	init(enemy_renderer);
-	spawn_enemy(enemies, vec3(1, .2, 0.5));
+	//spawn_enemy(enemies, vec3(1, .15, 0.5));
 
 	// frame timer
 	float frame_time = 1.f / 60;

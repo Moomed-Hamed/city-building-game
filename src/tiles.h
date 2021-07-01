@@ -113,5 +113,6 @@ void update_renderer(Tile_Renderer* renderer, TileID* tiles, float dtime)
 	renderer->num_fluid_tiles = num_fluid_tiles;
 	update(renderer->fluid_mesh, num_fluid_tiles * sizeof(Tile_Drawable), (byte*)renderer->fluid);
 
-	renderer->fluid_timer += dtime;
+	renderer->fluid_timer += .25 * dtime;
+	if (renderer->fluid_timer > 100000) renderer->fluid_timer = 0;
 }

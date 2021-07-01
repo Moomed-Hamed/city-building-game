@@ -93,7 +93,7 @@ void os_sleep(uint milliseconds)
 /* -- how 2 play a sound --
 
 	Audio sound = load_audio("sound.audio");
-	play_sudio(sound);
+	play_audio(sound);
 */
 
 typedef ALuint Audio;

@@ -102,7 +102,6 @@ int main()
 
 			//x = (int)x;
 			//z = (int)z;
-
 			//if ((int)z % 2) x += .5;
 
 			intersect_point = vec3(x, 1, z);

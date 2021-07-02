@@ -17,6 +17,7 @@ uniform float timer;
 out VS_OUT vs_out;
 
 vec3 gerstner_wave(vec4 wave, vec2 origin, vec3 pos, inout vec3 tangent, inout vec3 binormal);
+vec3 sin_wave(vec2 origin, vec3 pos, inout vec3 tangent, inout vec3 binormal);
 
 void main()
 {
@@ -27,9 +28,10 @@ void main()
 	vec3 tangent  = vec3(1, 0, 0);
 	vec3 binormal = vec3(0, 0, 1);
 
-	pos += gerstner_wave(vec4(1, 1.0, .2, 1), vec2(1, 0), pos, tangent, binormal);
-	pos += gerstner_wave(vec4(1, 0.6, .2, .5), vec2(1, 1), pos, tangent, binormal);
+	pos += gerstner_wave(vec4(1, 1.0, .2, 1.0), vec2(1, 0), pos, tangent, binormal);
+	pos += gerstner_wave(vec4(1, 0.6, .2, .50), vec2(1, 1), pos, tangent, binormal);
 	pos += gerstner_wave(vec4(1, 1.3, .2, .25), vec2(1, 1), pos, tangent, binormal);
+	//pos += sin_wave(vec2(8,14), pos, tangent, binormal);
 
 	vec3 adjusted_normal = normalize(cross(binormal, tangent));
 
@@ -63,35 +65,32 @@ vec3 gerstner_wave(vec4 wave, vec2 origin, vec3 pos, inout vec3 tangent, inout v
 	return vec3(d.x * (a * cos(f)), a * sin(f), d.y * (a * cos(f)));
 }
 
+vec3 sin_wave(vec2 origin, vec3 pos, inout vec3 tangent, inout vec3 binormal)
+{
+	float steepness  = .3;
+	float k = (6.283185) * 3;
+	float c = sqrt(9.81 / k); // speed
+	float a = steepness / k;  // amplitude
 
-// mayhaps these can be used to make ripples so we don't just
-// have direction waves with no center
-/*
-float x1 =  - 8;
-float x2 = pos.z + world_position.z - 8;
-float offset  = sqrt( (x1 * x1) + (x2 * x2) );
-
-float k = 6.283185; // two pi
-float f = k * (offset - timer);
-float a = .06; // amplitude
-float px = a * cos(f);
-float py = a * sin(f);
-vec3  tangent = normalize(vec3(1 - k * a * sin(f), k * a * cos(f), 0));
-vec3  adjusted_normal = vec3(-tangent.y, tangent.x, 0);
-*/
-/*
 	float x1 = pos.x - origin.x;
 	float x2 = pos.z - origin.y;
 	float offset  = sqrt( (x1 * x1) + (x2 * x2) );
+	float f = k * (offset - (timer * 5));
 
-	float k = 2 * 3.1415; // two pi
-	float f = k * (offset - timer);
+	float factor = 1 / (offset * offset);
 
-	float px = a * cos(f);
-	float py = a * sin(f);
+	tangent += vec3(
+		(steepness * sin(f)),
+		(steepness * cos(f)),
+		(steepness * sin(f))) * factor;
 
-	vec3  tangent = normalize(vec3(1 - k * py, k * px, 0));
-	vec3  normal += vec3(-tangent.y, tangent.x, 0);
+	binormal += vec3(
+		(steepness * sin(f)),
+		(steepness * cos(f)),
+		(steepness * sin(f))) * factor;
 
-	return vec2(px, py);
-	*/
+		float height = a * sin(f);
+		if(offset > 1) height *= factor;
+
+	return vec3(0, height, 0);
+}

@@ -17,10 +17,6 @@ int main()
 	camera.height = 3;
 
 	Level* level = Alloc(Level, 1);
-	level->path_nodes[0] = { vec3(0, 1, 8.5)     };
-	level->path_nodes[1] = { vec3(15.5, 1, 8.5)  };
-	level->path_nodes[2] = { vec3(15.5, 1, 15.5) };
-	level->path_nodes[3] = { vec3(-.5, 0, 0.5)   };
 
 	Tile_Renderer*   tile_renderer   = Alloc(Tile_Renderer  , 1);
 
@@ -36,7 +32,7 @@ int main()
 	Enemy* enemies = Alloc(Enemy, MAX_ENEMIES);
 	Enemy_Renderer* enemy_renderer = Alloc(Enemy_Renderer, 1);
 	init(enemy_renderer);
-	//spawn_enemy(enemies, vec3(1, .15, 0.5));
+	spawn_enemy(enemies, vec3(1, .15, 0.5));
 
 	// frame timer
 	float frame_time = 1.f / 60;
@@ -93,6 +89,26 @@ int main()
 		update_renderer(enemy_renderer, enemies);
 
 		mat4 proj_view = proj * glm::lookAt(camera.position, camera.position + camera.front, camera.up);
+
+		// calculating which tile is selected by the mouse
+		vec3 intersect_point = {};
+		{
+			vec3 mouse_dir = get_mouse_world_dir(mouse, proj_view);
+			vec3 p0 = camera.position + vec3(mouse.norm_x, mouse.norm_y, 0);
+			float lambda = (1 - p0.y) / mouse_dir.y;
+
+			float x = p0.x + (lambda * mouse_dir.x);
+			float z = p0.z + (lambda * mouse_dir.z);
+
+			//x = (int)x;
+			//z = (int)z;
+
+			//if ((int)z % 2) x += .5;
+
+			intersect_point = vec3(x, 1, z);
+		}
+
+		enemies[0] = { 1, intersect_point };
 
 		// Geometry pass
 		glBindFramebuffer(GL_FRAMEBUFFER, g_buffer.FBO);

@@ -2,32 +2,22 @@
 
 #define MAX_ENEMIES 256
 
-#define ENEMY_GRUNT 1
-#define ENEMY_HEAVY 2
+#define NATURE_FOREST 1
 
 struct Enemy
 {
 	uint type;
 	vec3 position;
-
-	float health; // shield?
-	int node_index; // index of path node this enemy is travelling to
 };
 
-void spawn_enemy(Enemy* enemies, vec3 pos, uint type = ENEMY_GRUNT)
+void spawn_enemy(Enemy* enemies, vec3 pos, uint type = 1)
 {
 	for (uint i = 0; i < MAX_ENEMIES; i++)
 	{
 		if (enemies[i].type == NULL)
 		{
 			enemies[i].type = type;
-			enemies[i].position = pos + vec3(0.5, 0, 0.5);
-
-			switch (type)
-			{
-			case ENEMY_GRUNT: enemies[i].health = 100; break;
-			case ENEMY_HEAVY: enemies[i].health = 200; break;
-			}
+			enemies[i].position = pos;
 
 			return;
 		}
@@ -63,7 +53,7 @@ struct Enemy_Renderer
 
 void init(Enemy_Renderer* renderer)
 {
-	load(&renderer->mesh, "assets/meshes/farm.mesh_uv", "assets/textures/palette.bmp", sizeof(renderer->enemies));
+	load(&renderer->mesh, "assets/meshes/arrow.mesh_uv", "assets/textures/palette.bmp", sizeof(renderer->enemies));
 	mesh_add_attrib_vec3(3, sizeof(Enemy_Drawable), 0); // world pos
 
 	load(&(renderer->shader), "assets/shaders/mesh_uv.vert", "assets/shaders/mesh_uv.frag");

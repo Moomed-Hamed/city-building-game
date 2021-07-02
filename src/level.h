@@ -3,7 +3,6 @@
 struct Level
 {
 	TileID tiles[NUM_MAP_TILES];
-	vec3 path_nodes[16]; // path enemies travel on
 };
 
 void update_level(Level* level, float dtime)
@@ -51,15 +50,16 @@ void test_gen(Level* level, uint offset = 0, float flatness = 16)
 				blocks[index] = TILE_GRASS;
 			}
 
-			//switch (height)
+			//if (y == height - 1)
 			//{
-			//case 0: blocks[index] = TILE_WATER; break;
-			//case 1: blocks[index] = TILE_SAND; break;
-			//case 2: blocks[index] = TILE_DIRT; break;
-			//case 3: blocks[index] = TILE_GRASS; break;
-			//case 4: blocks[index] = TILE_GRASS; break;
-			//case 5: blocks[index] = TILE_GRASS; break;
+			//	blocks[index] = TILE_DIRT;
 			//}
+			//else if (y == height - 2)
+			//{
+			//	blocks[index] = TILE_STONE;
+			//}
+			//
+			//if(y > height) blocks[index] = TILE_AIR;
 		}
 	} }
 }

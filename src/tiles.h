@@ -1,10 +1,12 @@
-#include "camera.h"
+#include "arrow.h"
 
-#define MAP_X 16
-#define MAP_Z 16
-#define MAP_Y 6
-#define NUM_MAP_TILES (MAP_X * MAP_Z * MAP_Y)
-#define TILE_INDEX(x,y,z) (((x) + (MAP_X * (z))) + ((MAP_X * MAP_Z) * (y)))
+#define CHUNK_X 16
+#define CHUNK_Z 16
+#define CHUNK_Y 10
+#define NUM_CHUNKS 5
+#define NUM_CHUNK_TILES (CHUNK_X * CHUNK_Z * CHUNK_Y)
+#define NUM_MAP_TILES (NUM_CHUNK_TILES * NUM_CHUNKS)
+#define TILE_INDEX(x,y,z) (((x) + (CHUNK_X * (z))) + ((CHUNK_X * CHUNK_Z) * (y)))
 
 #define TILE_AIR		0
 #define TILE_GRASS	1
@@ -12,6 +14,7 @@
 #define TILE_SAND		3
 #define TILE_STONE	4
 #define TILE_WATER	5
+#define TILE_DECORATION 6
 
 typedef uint32 TileID;
 
@@ -31,13 +34,19 @@ struct Tile_Drawable
 struct Tile_Renderer
 {
 	uint num_land_tiles, num_fluid_tiles;
-	Land_Drawable land[NUM_MAP_TILES];
-	Tile_Drawable fluid[NUM_MAP_TILES];
+	Land_Drawable land [NUM_MAP_TILES * NUM_CHUNKS];
+	Tile_Drawable fluid[NUM_MAP_TILES * NUM_CHUNKS];
 
 	Drawable_Mesh_UV land_mesh, fluid_mesh;
 	Shader land_shader, fluid_shader;
 
 	float fluid_timer;
+
+	//for decoration (for now)
+	uint num_enemies;
+	Enemy_Drawable enemies[256];
+	Drawable_Mesh_UV mesh;
+	Shader shader;
 };
 
 void init(Tile_Renderer* renderer)
@@ -65,6 +74,16 @@ void init(Tile_Renderer* renderer)
 	set_int(renderer->fluid_shader, "albedo", 2);
 	set_int(renderer->fluid_shader, "texture_sampler", 3);
 	set_float(renderer->fluid_shader, "timer", renderer->fluid_timer);
+
+	load(&renderer->mesh, "assets/meshes/forest.mesh_uv", "assets/textures/palette.bmp", sizeof(renderer->enemies));
+	mesh_add_attrib_vec3(3, sizeof(Enemy_Drawable), 0); // world pos
+
+	load(&(renderer->shader), "assets/shaders/mesh_uv.vert", "assets/shaders/mesh_uv.frag");
+	bind(renderer->shader);
+	set_int(renderer->shader, "positions", 0);
+	set_int(renderer->shader, "normals", 1);
+	set_int(renderer->shader, "albedo", 2);
+	set_int(renderer->shader, "texture_sampler", 5);
 }
 void update_renderer(Tile_Renderer* renderer, TileID* tiles, float dtime)
 {
@@ -74,36 +93,42 @@ void update_renderer(Tile_Renderer* renderer, TileID* tiles, float dtime)
 	Land_Drawable* land_mem  = renderer->land;
 	Tile_Drawable* fluid_mem = renderer->fluid;
 
-	for (int x = 0; x < MAP_X; x++) {
-	for (int z = 0; z < MAP_Z; z++) {
-	for (int y = 0; y < MAP_Y; y++)
+	uint num_enemies = 0;
+	Enemy_Drawable* enemy_mem = renderer->enemies;
+
+	for (int x = 0; x < CHUNK_X; x++) {
+	for (int z = 0; z < CHUNK_Z; z++) {
+	for (int y = 0; y < CHUNK_Y; y++)
 	{
-		int block = tiles[TILE_INDEX(x, y, z)];
+		int tile = tiles[TILE_INDEX(x, y, z)];
 
-		if (block < TILE_WATER)
+		if (tile == TILE_AIR) continue;
+
+		if (tile == TILE_DECORATION)
 		{
-			
-			switch (block)
-			{
-			case TILE_GRASS: land_mem->position = vec3(x, .2 * 2, z); break;
-			case TILE_SAND : land_mem->position = vec3(x, .2 * 1, z); break;
-			default: land_mem->position = vec3(x, .2 * 3, z); break;
-			}
+			enemy_mem->position = vec3(x, .2 * (float)(y-1), z);
+			if (z % 2) enemy_mem->position += vec3(0.5, 0, 0);
 
-			if (z % 2) land_mem->position += vec3(0.5, 0, 0);
-
-			land_mem->tex_offset = (1.f / 16) * (block - 1);
-
-			num_land_tiles++;
-			land_mem++;
+			num_enemies++;
+			enemy_mem++;
 		}
-		else
+		else if (tile == TILE_WATER)
 		{
-			fluid_mem->position = vec3(x, 0, z);
+			fluid_mem->position = vec3(x, .2 * (float).6, z);
 			if (z % 2) fluid_mem->position += vec3(0.5, 0, 0);
 
 			num_fluid_tiles++;
 			fluid_mem++;
+		}
+		else // it must be a land tile
+		{
+			land_mem->position = vec3(x, .2 * (float)y, z);
+			if (z % 2) land_mem->position += vec3(0.5, 0, 0);
+
+			land_mem->tex_offset = (1.f / 16) * (tile - 1);
+
+			num_land_tiles++;
+			land_mem++;
 		}
 	} } }
 
@@ -115,4 +140,8 @@ void update_renderer(Tile_Renderer* renderer, TileID* tiles, float dtime)
 
 	renderer->fluid_timer += .1 * dtime;
 	if (renderer->fluid_timer > 100000) renderer->fluid_timer = 0;
+
+	//decoration
+	renderer->num_enemies = num_enemies;
+	update(renderer->mesh, num_enemies * sizeof(Enemy_Drawable), (byte*)renderer->enemies);
 }

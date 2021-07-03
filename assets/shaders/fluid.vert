@@ -49,6 +49,7 @@ vec3 gerstner_wave(vec4 wave, vec2 origin, vec3 pos, inout vec3 tangent, inout v
 	float k = 6.283185 / wavelength;
 	float c = sqrt(9.81 / k); // speed
 	float a = steepness / k;  // amplitude
+	//vec2  d = normalize(normalize(wave.xy) + normalize(pos.xz - vec2(32,8))); // direction
 	vec2  d = normalize(wave.xy); // direction
 	float f = k * (dot(d, pos.xz) - (c * timer));
 

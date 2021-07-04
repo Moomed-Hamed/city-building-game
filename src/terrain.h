@@ -9,7 +9,7 @@ struct Chunk
 // terrain generation
 void generate_chunk(TileID* tiles, uint xoffset = 0, uint zoffset = 0, float flatness = 16)
 {
-	for (uint i = 0; i < NUM_MAP_TILES; ++i) tiles[i] = TILE_AIR;
+	for (uint i = 0; i < NUM_CHUNK_TILES; ++i) tiles[i] = TILE_AIR;
 
 	float n = 1.f / 6.1;
 

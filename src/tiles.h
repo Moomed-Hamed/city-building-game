@@ -3,7 +3,7 @@
 #define CHUNK_X 16
 #define CHUNK_Z 16
 #define CHUNK_Y 10
-#define NUM_CHUNKS 5
+#define NUM_CHUNKS 9
 #define NUM_CHUNK_TILES (CHUNK_X * CHUNK_Z * CHUNK_Y)
 #define NUM_MAP_TILES (NUM_CHUNK_TILES * NUM_CHUNKS)
 #define TILE_INDEX(x,y,z) (((x) + (CHUNK_X * (z))) + ((CHUNK_X * CHUNK_Z) * (y)))
@@ -85,7 +85,7 @@ void init(Tile_Renderer* renderer)
 	set_int(renderer->shader, "albedo", 2);
 	set_int(renderer->shader, "texture_sampler", 5);
 }
-void update_renderer(Tile_Renderer* renderer, TileID* tiles, float dtime)
+void update_renderer(Tile_Renderer* renderer, TileID* tiles, vec2 offset, float dtime)
 {
 	uint num_land_tiles = 0;
 	uint num_fluid_tiles = 0;
@@ -106,7 +106,7 @@ void update_renderer(Tile_Renderer* renderer, TileID* tiles, float dtime)
 
 		if (tile == TILE_DECORATION)
 		{
-			enemy_mem->position = vec3(x, .2 * (float)(y-1), z);
+			enemy_mem->position = vec3(x + offset.x, .2 * (float)(y-1), z + offset.y);
 			if (z % 2) enemy_mem->position += vec3(0.5, 0, 0);
 
 			num_enemies++;
@@ -114,7 +114,7 @@ void update_renderer(Tile_Renderer* renderer, TileID* tiles, float dtime)
 		}
 		else if (tile == TILE_WATER)
 		{
-			fluid_mem->position = vec3(x, .2 * (float).6, z);
+			fluid_mem->position = vec3(x + offset.x, .2 * (float).6, z + offset.y);
 			if (z % 2) fluid_mem->position += vec3(0.5, 0, 0);
 
 			num_fluid_tiles++;
@@ -122,7 +122,7 @@ void update_renderer(Tile_Renderer* renderer, TileID* tiles, float dtime)
 		}
 		else // it must be a land tile
 		{
-			land_mem->position = vec3(x, .2 * (float)y, z);
+			land_mem->position = vec3(x + offset.x, .2 * (float)y, z + offset.y);
 			if (z % 2) land_mem->position += vec3(0.5, 0, 0);
 
 			land_mem->tex_offset = (1.f / 16) * (tile - 1);

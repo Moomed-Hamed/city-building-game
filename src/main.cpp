@@ -18,16 +18,16 @@ int main()
 
 	Level* level = Alloc(Level, 1);
 
-	Tile_Renderer*   tile_renderer   = Alloc(Tile_Renderer  , 1);
+	init(level);
 
-	init(tile_renderer);
+	Level_Renderer* level_renderer = Alloc(Level_Renderer, 1);
+
+	init(level_renderer);
 
 	G_Buffer g_buffer = {};
 	init_g_buffer(&g_buffer, window);
 	Shader lighting_shader = make_lighting_shader();
 	mat4 proj = glm::perspective(FOV, (float)window.screen_width / window.screen_height, 0.1f, DRAW_DISTANCE);
-
-	generate_chunk(level->tiles);
 
 	Enemy* enemies = Alloc(Enemy, MAX_ENEMIES);
 	Enemy_Renderer* enemy_renderer = Alloc(Enemy_Renderer, 1);
@@ -66,26 +66,26 @@ int main()
 			set_vec3(lighting_shader, "spt_light.direction", camera.front);
 		}
 
-		if (keys.X.is_pressed && !keys.X.was_pressed)
-		{
-			static float flat = 0.1;
-			flat += .2;
-			out(flat <<  " = " << flat);
-			generate_chunk(level->tiles, 0, 0, flat);
-		}
-
-		if (keys.R.is_pressed && !keys.R.was_pressed)
-		{
-			static uint offset = 0;
-			offset += 1;
-			generate_chunk(level->tiles, offset, offset, 6);
-		}
+		//if (keys.X.is_pressed && !keys.X.was_pressed)
+		//{
+		//	static float flat = 0.1;
+		//	flat += .2;
+		//	out(flat <<  " = " << flat);
+		//	generate_chunk(level->tiles, 0, 0, flat);
+		//}
+		//
+		//if (keys.R.is_pressed && !keys.R.was_pressed)
+		//{
+		//	static uint offset = 0;
+		//	offset += 1;
+		//	generate_chunk(level->tiles, offset, offset, 6);
+		//}
 
 		// game state updates //
 		update_level(level, frame_time);
 
 		// rendering updates //
-		update_renderer(tile_renderer, level->tiles, frame_time);
+		update_renderer(level_renderer, level, frame_time);
 		update_renderer(enemy_renderer, enemies);
 
 		mat4 proj_view = proj * glm::lookAt(camera.position, camera.position + camera.front, camera.up);
@@ -114,21 +114,7 @@ int main()
 		glBindFramebuffer(GL_FRAMEBUFFER, g_buffer.FBO);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		bind(tile_renderer->land_shader);
-		set_mat4(tile_renderer->land_shader, "proj_view", proj_view);
-		bind_texture(tile_renderer->land_mesh, 3);
-		draw(tile_renderer->land_mesh, tile_renderer->num_land_tiles);
-
-		bind(tile_renderer->fluid_shader);
-		set_mat4(tile_renderer->fluid_shader, "proj_view", proj_view);
-		set_float(tile_renderer->fluid_shader, "timer", tile_renderer->fluid_timer);
-		bind_texture(tile_renderer->fluid_mesh, 3);
-		draw(tile_renderer->fluid_mesh, tile_renderer->num_fluid_tiles);
-
-		bind(tile_renderer->shader);
-		set_mat4(tile_renderer->shader, "proj_view", proj_view);
-		bind_texture(tile_renderer->mesh, 3);
-		draw(tile_renderer->mesh, tile_renderer->num_enemies);
+		draw(level_renderer, proj_view);
 
 		bind(enemy_renderer->shader);
 		set_mat4(enemy_renderer->shader, "proj_view", proj_view);

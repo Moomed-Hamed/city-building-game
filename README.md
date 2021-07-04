@@ -5,6 +5,8 @@
 ### About
 I like city building games so i'm making one for myself. I'm working on it in my free time, so it's not very complete just yet.
 
+![showcase](assets/misc/farm.jpg)
+
 ### Controls
 ```
 Mouse1 - Rotate Camera
@@ -19,6 +21,8 @@ ESC - exit
 
 ### Requirements
 - Graphics card that supports OpenGL 4.1
+
+![showcase](assets/misc/showcase.jpg)
 
 ### Credits
 - Programmer : Me

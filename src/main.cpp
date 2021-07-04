@@ -13,8 +13,9 @@ int main()
 	init_window(&window, 1920, 1080, "tower defense game");
 	init_keyboard(&keys);
 
-	Camera camera = { vec3(5, 5, 5) };
+	Camera camera = {};
 	camera.height = 3;
+	camera.theta = PI;
 
 	Level* level = Alloc(Level, 1);
 
@@ -66,21 +67,6 @@ int main()
 			set_vec3(lighting_shader, "spt_light.direction", camera.front);
 		}
 
-		//if (keys.X.is_pressed && !keys.X.was_pressed)
-		//{
-		//	static float flat = 0.1;
-		//	flat += .2;
-		//	out(flat <<  " = " << flat);
-		//	generate_chunk(level->tiles, 0, 0, flat);
-		//}
-		//
-		//if (keys.R.is_pressed && !keys.R.was_pressed)
-		//{
-		//	static uint offset = 0;
-		//	offset += 1;
-		//	generate_chunk(level->tiles, offset, offset, 6);
-		//}
-
 		// game state updates //
 		update_level(level, frame_time);
 
@@ -104,11 +90,19 @@ int main()
 			//z = (int)z;
 			//if ((int)z % 2) x += .5;
 
-			intersect_point = vec3(x, 1, z);
+			intersect_point = vec3(x, 0, z);
+
+			//for (uint i = 0; i < CHUNK_Y; i++)
+			//{
+			//	if (level->chunks[0].tiles[TILE_INDEX((int)x, i, (int)z)] > 0)
+			//	{
+			//		intersect_point.y = ((float)i) * .2;
+			//	}
+			//}
+
 		}
 
-		//enemies[0] = { 1, intersect_point };
-		enemies[0] = { 1, vec3(0,2,1) };
+		enemies[0] = { 1, intersect_point };
 
 		// Geometry pass
 		glBindFramebuffer(GL_FRAMEBUFFER, g_buffer.FBO);
@@ -126,6 +120,9 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		bind(lighting_shader);
+		static float theta = 0;
+		theta += frame_time * TWOPI * .1;
+		set_vec3(lighting_shader, "dir_light.direction", vec3(sin(theta), -1, cos(theta)));
 		set_vec3(lighting_shader, "view_pos", camera.position);
 		draw_g_buffer(g_buffer);
 

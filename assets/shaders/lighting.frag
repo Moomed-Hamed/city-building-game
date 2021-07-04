@@ -62,13 +62,13 @@ void main()
 	vec3 light_dir   = normalize(dir_light.direction) * -1;
 	vec3 view_dir    = normalize(vs_out.view_pos - position);
 	vec3 reflect_dir = reflect(light_dir * -1, normal);
-	float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 8);
+	float spec = 0;//pow(max(dot(view_dir, reflect_dir), 0.0), 8);
 	float diff = max(dot(normal, light_dir), 0.0);
 
 	vec3 ambient  = dir_light.ambient  * albedo;
 	vec3 diffuse  = dir_light.diffuse  * diff * albedo;
 	vec3 specular = dir_light.specular * spec * albedo;
-	vec3 final_color = .66 * (ambient + diffuse + specular); // This should be .33 probably
+	vec3 final_color = .55 * (ambient + diffuse + specular); // This should be .33 probably
 
 	// Point Lights
 	light_dir   = normalize(pt_light.position - position);

@@ -528,9 +528,9 @@ Shader make_lighting_shader()
 	vec3 light_direction = vec3(-1, -1, -1);
 	set_vec3(lighting_shader, "dir_light.direction", light_direction);
 	set_vec3(lighting_shader, "dir_light.direction", light_direction);
-	set_vec3(lighting_shader, "dir_light.ambient"  , vec3(0.2f, 0.2f, 0.2f));
-	set_vec3(lighting_shader, "dir_light.diffuse"  , vec3(0.5f, 0.5f, 0.5f));
-	set_vec3(lighting_shader, "dir_light.specular" , vec3(1.0f, 1.0f, 1.0f));
+	set_vec3(lighting_shader, "dir_light.ambient"  , vec3(.6,.6,.6));
+	set_vec3(lighting_shader, "dir_light.diffuse"  , vec3(.6,.6,.6));
+	set_vec3(lighting_shader, "dir_light.specular" , vec3(.6,.6,.6));
 	
 	// Point Lights
 	vec3 light_position = vec3(8, 65, 8);

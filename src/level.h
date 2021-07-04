@@ -1,11 +1,7 @@
-#define BigAlloc(type, size) (type*)VirtualAlloc(0, (size) * sizeof(type), MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE)
-
-
-#include "nature.h"
+#include "terrain.h"
 
 struct Level
 {
-	TileID tiles[NUM_MAP_TILES];
 	Chunk chunks[NUM_CHUNKS];
 };
 
@@ -13,8 +9,8 @@ void init(Level* level)
 {
 	// generate default chunks
 	int i = 0;
-	for (int x = 0; x < (16 * 3); x += 16) {
-	for (int z = 0; z < (16 * 3); z += 16) {
+	for (int x = 0; x < (16 * sqrt(NUM_CHUNKS)); x += 16) {
+	for (int z = 0; z < (16 * sqrt(NUM_CHUNKS)); z += 16) {
 		level->chunks[i].x = x;
 		level->chunks[i].z = z;
 		generate_chunk(level->chunks[i++].tiles, x * 16, z * 16);

@@ -28,7 +28,6 @@ void camera_pan(Camera* camera, float dx, float dy, float dtime)
 	camera->horizontal_offset = camera->right * horizontal_amount;
 	camera->vertical_offset   = camera->up    * vertical_amount;
 }
-
 void camera_rotate(Camera* camera, float dx, float dy, float dtime)
 {
 	camera->theta  += dx * dtime * .1;
@@ -39,7 +38,6 @@ void camera_rotate(Camera* camera, float dx, float dy, float dtime)
 	if (camera->height < 3   ) camera->height = 3;
 	if (camera->height > 10  ) camera->height = 10;
 }
-
 void camera_update_dir(Camera* camera, float dx, float dy, float sensitivity = 0.003)
 {
 	camera->yaw   += (dx * sensitivity) / TWOPI;
@@ -56,14 +54,12 @@ void camera_update_dir(Camera* camera, float dx, float dy, float sensitivity = 0
 	camera->right = normalize(cross(camera->front, vec3(0, 1, 0)));
 	camera->up    = normalize(cross(camera->right, camera->front));
 }
-
 void camera_update_dir(Camera* camera, vec3 front)
 {
 	camera->front = normalize(front);
 	camera->right = normalize(cross(camera->front, vec3(0, 1, 0)));
 	camera->up = normalize(cross(camera->right, camera->front));
 }
-
 void camera_update_pos(Camera* camera, int direction, float distance)
 {
 	if (direction == DIR_FORWARD ) camera->position += camera->front * distance;
@@ -73,7 +69,6 @@ void camera_update_pos(Camera* camera, int direction, float distance)
 	if (direction == DIR_UP      ) camera->position += camera->up    * distance;
 	if (direction == DIR_DOWN    ) camera->position -= camera->up    * distance;
 }
-
 void camera_update(Camera* camera)
 {
 	float radius = 12;

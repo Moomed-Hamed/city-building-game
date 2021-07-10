@@ -10,30 +10,26 @@ int main()
 	Mouse    mouse  = {};
 	Keyboard keys   = {};
 
-	init_window(&window, 1920, 1080, "tower defense game");
+	init_window(&window, 1920, 1080, "city building game");
 	init_keyboard(&keys);
 
 	Camera camera = {};
 	camera.height = 3;
 	camera.theta = PI;
+	camera.position = vec3(16, 3, 16);
 
 	Level* level = Alloc(Level, 1);
 
-	init(level);
-
 	Level_Renderer* level_renderer = Alloc(Level_Renderer, 1);
-
 	init(level_renderer);
+
+	Cursor_Renderer* cursor_renderer = Alloc(Cursor_Renderer, 1);
+	init(cursor_renderer);
 
 	G_Buffer g_buffer = {};
 	init_g_buffer(&g_buffer, window);
 	Shader lighting_shader = make_lighting_shader();
 	mat4 proj = glm::perspective(FOV, (float)window.screen_width / window.screen_height, 0.1f, DRAW_DISTANCE);
-
-	Enemy* enemies = Alloc(Enemy, MAX_ENEMIES);
-	Enemy_Renderer* enemy_renderer = Alloc(Enemy_Renderer, 1);
-	init(enemy_renderer);
-	spawn_enemy(enemies, vec3(1, .15, 0.5));
 
 	// frame timer
 	float frame_time = 1.f / 60;
@@ -47,32 +43,14 @@ int main()
 		update_keyboard(&keys, window);
 
 		if (keys.ESC.is_pressed) break;
-
-		// camera control
-		if (mouse.left_button.is_pressed && mouse.left_button.was_pressed && keys.SHIFT.is_pressed)
-		{
-			camera_pan(&camera, mouse.dx, mouse.dy, frame_time);
-		}
-		else if (mouse.left_button.is_pressed && mouse.left_button.was_pressed)
-		{
-			camera_rotate(&camera, mouse.dx, mouse.dy, frame_time);
-		}
-
-		camera_update(&camera);
-
-		if (keys.F.is_pressed) // flashlight
-		{
-			bind(lighting_shader);
-			set_vec3(lighting_shader, "spt_light.position" , camera.position);
-			set_vec3(lighting_shader, "spt_light.direction", camera.front);
-		}
-
-		// game state updates //
-		update_level(level, frame_time);
-
-		// rendering updates //
-		update_renderer(level_renderer, level, frame_time);
-		update_renderer(enemy_renderer, enemies);
+		
+		if (keys.W.is_pressed) camera_update_pos(&camera, DIR_FORWARD , 10 * frame_time);
+		if (keys.S.is_pressed) camera_update_pos(&camera, DIR_BACKWARD, 10 * frame_time);
+		if (keys.A.is_pressed) camera_update_pos(&camera, DIR_LEFT    , 10 * frame_time);
+		if (keys.D.is_pressed) camera_update_pos(&camera, DIR_RIGHT   , 10 * frame_time);
+		if (camera.position.x < 32) camera.position.x = 32;
+		if (camera.position.z < 32) camera.position.z = 32;
+		if(!keys.SHIFT.is_pressed) camera_update_dir(&camera, mouse.dx, mouse.dy);
 
 		mat4 proj_view = proj * glm::lookAt(camera.position, camera.position + camera.front, camera.up);
 
@@ -86,34 +64,26 @@ int main()
 			float x = p0.x + (lambda * mouse_dir.x);
 			float z = p0.z + (lambda * mouse_dir.z);
 
-			//x = (int)x;
-			//z = (int)z;
-			//if ((int)z % 2) x += .5;
+			x = (int)x;
+			z = (int)z;
+			if ((int)z % 2) x += .5;
 
-			intersect_point = vec3(x, 0, z);
-
-			//for (uint i = 0; i < CHUNK_Y; i++)
-			//{
-			//	if (level->chunks[0].tiles[TILE_INDEX((int)x, i, (int)z)] > 0)
-			//	{
-			//		intersect_point.y = ((float)i) * .2;
-			//	}
-			//}
-
+			intersect_point = vec3(x, .8, z);
 		}
 
-		enemies[0] = { 1, intersect_point };
+		// game state updates //
+		update_level(level, camera.position, frame_time);
+
+		// rendering updates //
+		update_renderer(level_renderer , level, frame_time);
+		update_renderer(cursor_renderer, intersect_point);
 
 		// Geometry pass
 		glBindFramebuffer(GL_FRAMEBUFFER, g_buffer.FBO);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		draw(level_renderer, proj_view);
-
-		bind(enemy_renderer->shader);
-		set_mat4(enemy_renderer->shader, "proj_view", proj_view);
-		bind_texture(enemy_renderer->mesh, 5);
-		draw(enemy_renderer->mesh, enemy_renderer->num_enemies);
+		draw(level_renderer , proj_view);
+		draw(cursor_renderer, proj_view);
 
 		// Lighting pass
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -122,7 +92,7 @@ int main()
 		bind(lighting_shader);
 		static float theta = 0;
 		theta += frame_time * TWOPI * .1;
-		set_vec3(lighting_shader, "dir_light.direction", vec3(sin(theta), -1, cos(theta)));
+		set_vec3(lighting_shader, "dir_light.direction", vec3(sin(theta), -0.6, cos(theta)));
 		set_vec3(lighting_shader, "view_pos", camera.position);
 		draw_g_buffer(g_buffer);
 

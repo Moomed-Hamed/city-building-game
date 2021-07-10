@@ -72,7 +72,7 @@ void camera_update_pos(Camera* camera, int direction, float distance)
 void camera_update(Camera* camera)
 {
 	float radius = 12;
-	camera->position = vec3(radius * sin(camera->theta) + 8, camera->height, radius * cos(camera->theta) + 8);
+	camera->position = vec3(radius * sin(camera->theta) + 32, camera->height, radius * cos(camera->theta) + 32);
 	camera->position += camera->vertical_offset + camera->horizontal_offset;
 	camera_update_dir(camera, (vec3(8, 1, 8) + camera->vertical_offset + camera->horizontal_offset) - camera->position);
 }

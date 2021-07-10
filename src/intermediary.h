@@ -1,5 +1,5 @@
 // Copyright (c) 2021 Mohamed Hamed
-// Intermediary version 8.7.21
+// Intermediary version 15.7.21
 
 #pragma comment(lib, "winmm")
 #pragma comment(lib, "opengl32")
@@ -123,7 +123,6 @@ Audio load_audio(const char* path)
 	free(audio_data);
 	return SourceID;
 }
-
 void play_audio(Audio source_id)
 {
 	alSourcePlay(source_id);

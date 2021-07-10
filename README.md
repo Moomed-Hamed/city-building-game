@@ -1,28 +1,25 @@
 # City Building Game [WIP]
 
-![showcase](assets/misc/showcase.gif)
+![showcase](assets/misc/farm.gif)
 
 ### About
-I like city building games so i'm making one for myself. I'm working on it in my free time, so it's not very complete just yet.
+I like city building games so I'm making one for myself. I'm working on it in my free time, so it's not very complete just yet.
 
-![showcase](assets/misc/farm.jpg)
+![showcase](assets/misc/forests.gif)
 
 ### Controls
 ```
-Mouse1 - Rotate Camera
-Shift + Mouse - Pan Camera
+WASD  - Move Camera
+Shift - Position 3D Cursor
 ESC - exit
 ```
-### Libraries Used
-- GLEW - http://glew.sourceforge.net
-- GLFW - https://www.glfw.org
-- GLM  - https://glm.g-truc.net
-- STB_IMAGE - https://github.com/nothings/stb
+
+![showcase](assets/misc/long_pan.gif)
 
 ### Requirements
 - Graphics card that supports OpenGL 4.1
 
-![showcase](assets/misc/showcase.jpg)
+![showcase](assets/misc/zoom_out.gif)
 
 ### Credits
 - Programmer : Me

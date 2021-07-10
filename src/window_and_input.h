@@ -33,7 +33,7 @@ void init_window(Window* window, uint screen_width, uint screen_height, const ch
 	glewExperimental = GL_TRUE;
 	glewInit();
 
-	glClearColor(0, 0, 0, 1);
+	glClearColor(0.015, 0.529, 0.886, 1);
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	//glEnable(GL_FRAMEBUFFER_SRGB); // gamma correction

@@ -6,9 +6,13 @@ struct Chunk
 	TileID tiles[NUM_CHUNK_TILES];
 };
 
-// terrain generation
-void generate_chunk(TileID* tiles, uint xoffset = 0, uint zoffset = 0, float flatness = 16)
+void generate_chunk(Chunk* chunk, uint offset = 0, float flatness = 16)
 {
+	uint x_pos = chunk->x & 0xFFF0;
+	uint z_pos = chunk->z & 0xFFF0;
+
+	TileID* tiles = chunk->tiles;
+
 	for (uint i = 0; i < NUM_CHUNK_TILES; ++i) tiles[i] = TILE_AIR;
 
 	float n = 1.f / 6.1;
@@ -16,20 +20,13 @@ void generate_chunk(TileID* tiles, uint xoffset = 0, uint zoffset = 0, float fla
 	for (uint x = 0; x < CHUNK_X; ++x) {
 	for (uint z = 0; z < CHUNK_Z; ++z) {
 
-		float noise_value = perlin(n * (x + xoffset), n * (z + zoffset)) * 8;
+		float noise_value = perlin(n * (x + x_pos + offset), n * (z + z_pos + offset)) * 8;
 		uint height = noise_value - 1;
-		//out(height);
 		
 		for (uint y = 0; y < CHUNK_Y; ++y)
 		{
 			uint index = TILE_INDEX(x, y, z);
 			tiles[index] = NULL;
-		
-			if (height > 5)
-			{
-				out("height is: " << height);
-				height = 5;
-			}
 
 			if (y == height)
 			{
@@ -71,59 +68,5 @@ void generate_chunk(TileID* tiles, uint xoffset = 0, uint zoffset = 0, float fla
 			if (__rdtsc() % 2 == 0)
 				tiles[TILE_INDEX(x, 4, z)] = TILE_DECORATION;
 		}
-
-		// tried and failed to make shorelines
-		//if (x > 0 && z > 0 && x < 15 && z < 15)
-		//{
-		//	if (z % 2)
-		//	{
-		//		if (TILE_INDEX(x, 1, z) != TILE_WATER)
-		//		{
-		//			if (tiles[TILE_INDEX(x + 1, 1, z + 0)] != TILE_WATER ||
-		//				tiles[TILE_INDEX(x - 1, 1, z + 0)] != TILE_WATER ||
-		//				tiles[TILE_INDEX(x + 0, 1, z + 1)] != TILE_WATER ||
-		//				tiles[TILE_INDEX(x + 0, 1, z - 1)] != TILE_WATER ||
-		//				tiles[TILE_INDEX(x + 1, 1, z + 1)] != TILE_WATER ||
-		//				tiles[TILE_INDEX(x + 1, 1, z - 1)] != TILE_WATER)
-		//			{
-		//				if (tiles[TILE_INDEX(x + 1, 1, z + 0)] == TILE_WATER ||
-		//					tiles[TILE_INDEX(x - 1, 1, z + 0)] == TILE_WATER ||
-		//					tiles[TILE_INDEX(x + 0, 1, z + 1)] == TILE_WATER ||
-		//					tiles[TILE_INDEX(x + 0, 1, z - 1)] == TILE_WATER ||
-		//					tiles[TILE_INDEX(x + 1, 1, z + 1)] == TILE_WATER ||
-		//					tiles[TILE_INDEX(x + 1, 1, z - 1)] == TILE_WATER)
-		//				{
-		//					tiles[TILE_INDEX(x, 1, z)] = TILE_SAND;
-		//					tiles[TILE_INDEX(x, 0, z)] = TILE_STONE;
-		//				}
-		//			}
-		//		}
-		//	}
-		//	else
-		//	{
-		//		if (TILE_INDEX(x, 1, z) != TILE_WATER)
-		//		{
-		//			if (tiles[TILE_INDEX(x + 1, 1, z + 0)] != TILE_WATER ||
-		//				tiles[TILE_INDEX(x - 1, 1, z + 0)] != TILE_WATER ||
-		//				tiles[TILE_INDEX(x + 0, 1, z + 1)] != TILE_WATER ||
-		//				tiles[TILE_INDEX(x + 0, 1, z - 1)] != TILE_WATER ||
-		//				tiles[TILE_INDEX(x - 1, 1, z - 1)] != TILE_WATER ||
-		//				tiles[TILE_INDEX(x - 1, 1, z + 1)] != TILE_WATER)
-		//			{
-		//				if (tiles[TILE_INDEX(x + 1, 1, z + 0)] == TILE_WATER ||
-		//					tiles[TILE_INDEX(x - 1, 1, z + 0)] == TILE_WATER ||
-		//					tiles[TILE_INDEX(x + 0, 1, z + 1)] == TILE_WATER ||
-		//					tiles[TILE_INDEX(x + 0, 1, z - 1)] == TILE_WATER ||
-		//					tiles[TILE_INDEX(x - 1, 1, z - 1)] == TILE_WATER ||
-		//					tiles[TILE_INDEX(x - 1, 1, z + 1)] == TILE_WATER)
-		//				{
-		//					tiles[TILE_INDEX(x, 1, z)] = TILE_SAND;
-		//					tiles[TILE_INDEX(x, 0, z)] = TILE_STONE;
-		//				}
-		//			}
-		//		}
-		//	}
-		//}
-
 	} }
 }
